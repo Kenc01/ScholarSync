@@ -1,5 +1,5 @@
 @import "tailwindcss";
-/* @import "tw-animate-css/dist/tw-animate.css"; */
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -45,7 +45,48 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+}
 
+:root {
+  --radius: 0.625rem;
+
+  /* Warm Literary Backgrounds */
+  --bg-primary: #f8f4e9;
+  --bg-secondary: #f3e4c7;
+  --bg-tertiary: #fff6e5;
+  --bg-card: #ffffff;
+
+  /* Warm Text Colors */
+  --text-primary: #212a3b;
+  --text-secondary: #3d485e;
+  --text-muted: #222c37;
+
+  /* Warm Accent */
+  --accent-warm: #212a3b;
+  --accent-warm-hover: #3d485e;
+  --accent-light: #fff6e5;
+
+  /* Semantic Colors */
+  --success: #7c9a82;
+  --warning: #d4a853;
+
+  /* Borders */
+  --border-subtle: rgba(33, 42, 59, 0.12);
+  --border-medium: rgba(33, 42, 59, 0.2);
+
+  /* Soft Shadows */
+  --shadow-soft-sm:
+    0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-soft-md:
+    0 2px 4px rgba(0, 0, 0, 0.04), 0 8px 16px rgba(0, 0, 0, 0.08);
+  --shadow-soft-lg:
+    0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 32px rgba(0, 0, 0, 0.12);
+  --shadow-book: 0px 10px 30px 0px rgba(0, 0, 0, 0.1);
+
+  /* Base theme colors */
+  --background: #f8f4e9;
+  --foreground: #212a3b;
   --card: #ffffff;
   --card-foreground: #212a3b;
   --popover: #ffffff;
@@ -542,7 +583,7 @@
     }
   }
   .transcript-message {
-    animation: fadeInSlideUp 0.3s ease-out;
+    @apply animate-in fade-in slide-in-from-bottom-2 duration-300;
   }
   .transcript-message-user {
     @apply flex justify-end;
@@ -916,14 +957,4 @@ button[data-variant="unstyled"] *,
   font-weight: 600;
   border-radius: 0.75rem;
   font-size: 1.125rem;
-}
-@keyframes fadeInSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
