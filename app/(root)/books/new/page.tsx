@@ -1,5 +1,7 @@
 import UploadForm from "@/components/UploadForm";
 
+export const dynamic = "force-dynamic";
+
 const page = () => {
   return (
     <main className="wrapper container">
