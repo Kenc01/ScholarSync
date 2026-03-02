@@ -131,7 +131,13 @@ const UploadForm = () => {
       });
 
       if (!book.success) {
-        toast.error((book.error as string) || "Failed to create book");
+        const errorMessage =
+          typeof book.error === "string"
+            ? book.error
+            : book.error instanceof Error
+              ? book.error.message
+              : "Failed to create book";
+        toast.error(errorMessage);
         if (book.isBillingError) {
           router.push("/subscriptions");
         }
@@ -160,8 +166,11 @@ const UploadForm = () => {
       router.push("/");
     } catch (error) {
       console.error(error);
-
-      toast.error("Failed to upload book. Please try again later.");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload book. Please try again later.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
