@@ -24,8 +24,8 @@ import {
 import FileUploader from "./FileUploader";
 import VoiceSelector from "./VoiceSelector";
 import LoadingOverlay from "./LoadingOverlay";
-import { useAuth } from "@clerk/nextjs";
-import { toast } from "@/lib/toast";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
 import {
   checkBookExists,
   createBook,
@@ -33,6 +33,7 @@ import {
 } from "@/lib/actions/book.actions";
 import { useRouter } from "next/navigation";
 import { parsePDFFile } from "@/lib/utils";
+import { upload } from "@vercel/blob/client";
 
 const UploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,6 +63,8 @@ const UploadForm = () => {
 
     setIsSubmitting(true);
 
+    // PostHog -> Track Book Uploads...
+
     try {
       const existsCheck = await checkBookExists(data.title);
 
@@ -75,7 +78,6 @@ const UploadForm = () => {
       const fileTitle = data.title.replace(/\s+/g, "-").toLowerCase();
       const pdfFile = data.pdfFile;
 
-      // Parse PDF to extract content
       const parsedPDF = await parsePDFFile(pdfFile);
 
       if (parsedPDF.content.length === 0) {
@@ -85,41 +87,46 @@ const UploadForm = () => {
         return;
       }
 
-      // Prepare form data for file upload
-      const formData = new FormData();
-      formData.append("pdfFile", pdfFile);
-      if (data.coverImage) {
-        formData.append("coverImage", data.coverImage);
-      } else {
-        // Use the generated cover from PDF
-        const coverBlob = await fetch(parsedPDF.cover).then((r) => r.blob());
-        formData.append("generatedCover", coverBlob);
-      }
-      formData.append("title", data.title);
-      formData.append("author", data.author);
-      formData.append("persona", data.persona || "");
-
-      // Upload files to your API
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        contentType: "application/pdf",
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload files");
+      let coverUrl: string;
+
+      if (data.coverImage) {
+        const coverFile = data.coverImage;
+        const uploadedCoverBlob = await upload(
+          `${fileTitle}_cover.png`,
+          coverFile,
+          {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            contentType: coverFile.type,
+          },
+        );
+        coverUrl = uploadedCoverBlob.url;
+      } else {
+        const response = await fetch(parsedPDF.cover);
+        const blob = await response.blob();
+
+        const uploadedCoverBlob = await upload(`${fileTitle}_cover.png`, blob, {
+          access: "public",
+          handleUploadUrl: "/api/upload",
+          contentType: "image/png",
+        });
+        coverUrl = uploadedCoverBlob.url;
       }
 
-      const uploadedData = await uploadResponse.json();
-
-      // Create book record in database
       const book = await createBook({
         clerkId: userId,
         title: data.title,
         author: data.author,
         persona: data.persona,
-        fileURL: uploadedData.pdfUrl,
-        fileBlobKey: uploadedData.pdfKey,
-        coverURL: uploadedData.coverUrl,
+        fileURL: uploadedPdfBlob.url,
+        fileBlobKey: uploadedPdfBlob.pathname,
+        coverURL: coverUrl,
         fileSize: pdfFile.size,
       });
 
@@ -138,7 +145,6 @@ const UploadForm = () => {
         return;
       }
 
-      // Save parsed segments
       const segments = await saveBookSegments(
         book.data._id,
         userId,
@@ -150,7 +156,6 @@ const UploadForm = () => {
         throw new Error("Failed to save book segments");
       }
 
-      toast.success("Book uploaded successfully!");
       form.reset();
       router.push("/");
     } catch (error) {
