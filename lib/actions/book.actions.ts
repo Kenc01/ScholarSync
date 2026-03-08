@@ -5,7 +5,10 @@ import { connectToDatabase } from "@/database/mongoose";
 import { escapeRegex, generateSlug, serializeData } from "@/lib/utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
+import VoiceSession from "@/database/models/voice-session.model";
 import mongoose from "mongoose";
+import { del } from "@vercel/blob";
+import { revalidatePath } from "next/cache";
 
 export const getAllBooks = async (search?: string) => {
   try {
@@ -107,6 +110,65 @@ export const createBook = async (data: CreateBook) => {
   }
 };
 
+export const deleteBook = async (bookId: string) => {
+  try {
+    await connectToDatabase();
+
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    console.log(`[deleteBook] Attempting to delete book: ${bookId} by user: ${userId}`);
+
+    if (!userId) {
+      return { success: false, error: "Unauthorized: No user session" };
+    }
+
+    const book = await Book.findById(bookId);
+
+    if (!book) {
+      return { success: false, error: "Book not found" };
+    }
+
+    console.log(`[deleteBook] Book clerkId: ${book.clerkId}, User userId: ${userId}`);
+
+    // If the book doesn't have a clerkId (old data), allow deletion if logged in
+    // Otherwise, check for ownership
+    if (book.clerkId && book.clerkId !== userId) {
+      console.warn(`[deleteBook] Ownership mismatch. Book belongs to ${book.clerkId}`);
+      return { success: false, error: "Unauthorized: You do not own this book" };
+    }
+
+    // Delete files from Vercel Blob
+    const blobKeysToDelete = [book.fileBlobKey];
+    if (book.coverBlobKey) {
+      blobKeysToDelete.push(book.coverBlobKey);
+    }
+
+    await del(blobKeysToDelete);
+
+    // Delete segments
+    await BookSegment.deleteMany({ bookId: book._id });
+
+    // Delete voice sessions
+    await VoiceSession.deleteMany({ bookId: book._id });
+
+    // Delete book
+    await Book.findByIdAndDelete(bookId);
+
+    revalidatePath("/");
+
+    return {
+      success: true,
+    };
+  } catch (e) {
+    console.error("Error deleting book", e);
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+};
+
 export const getBookBySlug = async (slug: string) => {
   try {
     await connectToDatabase();
@@ -114,6 +176,7 @@ export const getBookBySlug = async (slug: string) => {
     const book = await Book.findOne({ slug }).lean();
 
     if (!book) {
+      console.warn(`[getBookBySlug] Book not found for slug: ${slug}`);
       return { success: false, error: "Book not found" };
     }
 
@@ -122,7 +185,7 @@ export const getBookBySlug = async (slug: string) => {
       data: serializeData(book),
     };
   } catch (e) {
-    console.error("Error fetching book by slug", e);
+    console.error(`[getBookBySlug] Error fetching book by slug: ${slug}`, e);
     return {
       success: false,
       error: e instanceof Error ? e.message : String(e),

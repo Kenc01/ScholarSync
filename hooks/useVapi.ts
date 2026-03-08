@@ -71,6 +71,15 @@ export function useVapi(book: IBook) {
   const durationRef = useLatestRef(duration);
   const voice = book.persona || DEFAULT_VOICE;
 
+  // Pre-initialize Vapi on mount to avoid startup delay
+  useEffect(() => {
+    try {
+      getVapi(); // Initialize Vapi instance once
+    } catch (err) {
+      console.error("Failed to initialize Vapi:", err);
+    }
+  }, []);
+
   // Set up Vapi event listeners
   useEffect(() => {
     const handlers = {
@@ -141,7 +150,12 @@ export function useVapi(book: IBook) {
       message: (message: any) => {
         if (message.type !== "transcript") return;
 
-        console.log("📝 Vapi Transcript:", message.role, message.transcriptType, message.transcript);
+        console.log(
+          "📝 Vapi Transcript:",
+          message.role,
+          message.transcriptType,
+          message.transcript,
+        );
 
         // Partial transcript → show real-time typing
         if (message.transcriptType === "partial") {
@@ -172,8 +186,11 @@ export function useVapi(book: IBook) {
                 m.role === message.role && m.content === message.transcript,
             );
             if (isDupe) return prev;
-            
-            return [...prev, { role: message.role, content: message.transcript }];
+
+            return [
+              ...prev,
+              { role: message.role, content: message.transcript },
+            ];
           });
         }
       },
@@ -258,40 +275,31 @@ export function useVapi(book: IBook) {
     setLimitError(null);
     setStatus("connecting");
 
-    // Check microphone permissions
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop()); // Stop immediately after checking
+      // Run microphone check and session creation in parallel
+      const [stream, sessionResult] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({ audio: true }),
+        startVoiceSession(userId, book._id),
+      ]);
+
+      // Stop microphone stream immediately after permission check
+      stream.getTracks().forEach((track) => track.stop());
       console.log("✓ Microphone access granted");
-    } catch (err) {
-      console.error("✗ Microphone access denied:", err);
-      setLimitError(
-        "Microphone access denied. Please allow access in your browser settings and try again.",
-      );
-      setStatus("idle");
-      return;
-    }
 
-    try {
-      // Check session limits and create session record
-      const result = await startVoiceSession(userId, book._id);
-
-      if (!result.success) {
+      if (!sessionResult.success) {
         setLimitError(
-          result.error || "Session limit reached. Please upgrade your plan.",
+          sessionResult.error ||
+            "Session limit reached. Please upgrade your plan.",
         );
         setStatus("idle");
         return;
       }
 
-      sessionIdRef.current = result.sessionId || null;
-      // Note: Server-returned maxDurationMinutes is informational only
-      // The actual limit is enforced by useLatestRef(limits.maxSessionMinutes * 60)
+      sessionIdRef.current = sessionResult.sessionId || null;
 
-      const firstMessage = `Hey, good to meet you. Quick question before we dive in - have you actually read ${book.title} yet, or are we starting fresh?`;
+      const firstMessage = `Hey! Ready to chat about ${book.title}?`;
 
       console.log("🎤 Starting VAPI call with ASSISTANT_ID:", ASSISTANT_ID);
-      console.log("📢 Waiting for you to speak after the AI greeting...");
 
       await getVapi().start(ASSISTANT_ID, {
         firstMessage,
@@ -313,7 +321,19 @@ export function useVapi(book: IBook) {
     } catch (err) {
       console.error("Failed to start call:", err);
       setStatus("idle");
-      setLimitError("Failed to start voice session. Please try again.");
+
+      // Handle specific error types
+      const errorMessage = (err as Error).message?.toLowerCase() || "";
+      if (
+        errorMessage.includes("notallowederror") ||
+        errorMessage.includes("permission")
+      ) {
+        setLimitError(
+          "Microphone access denied. Please allow access in your browser settings.",
+        );
+      } else {
+        setLimitError("Failed to start voice session. Please try again.");
+      }
     }
   }, [book._id, book.title, book.author, voice, userId]);
 
@@ -322,15 +342,41 @@ export function useVapi(book: IBook) {
     getVapi().stop();
   }, []);
 
-  const clearError = useCallback(() => {
-    setLimitError(null);
-  }, []);
-
   const isActive =
     status === "starting" ||
     status === "listening" ||
     status === "thinking" ||
     status === "speaking";
+
+  const sendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim() || !isActive) return;
+
+      try {
+        // Send message as user input to the conversation
+        // This will trigger the assistant to process it and call tools if needed
+        getVapi().send({
+          type: "add-message",
+          role: "user",
+          message: {
+            type: "string",
+            content: text,
+          },
+        } as any);
+
+        // Add user message to messages array
+        setMessages((prev) => [...prev, { role: "user", content: text }]);
+        setStatus("thinking");
+      } catch (error) {
+        console.error("Failed to send message:", error);
+      }
+    },
+    [isActive],
+  );
+
+  const clearError = useCallback(() => {
+    setLimitError(null);
+  }, []);
 
   // Calculate remaining time
   // const maxDurationSeconds = limits.maxSessionMinutes * SECONDS_PER_MINUTE;
@@ -348,6 +394,7 @@ export function useVapi(book: IBook) {
     duration,
     start,
     stop,
+    sendMessage,
     limitError,
     clearError,
     // maxDurationSeconds,

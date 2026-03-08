@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Mic } from "lucide-react";
+import { Mic, MessageCircle } from "lucide-react";
 import { Messages } from "@/types";
 
 interface TranscriptProps {
@@ -9,6 +9,7 @@ interface TranscriptProps {
   currentMessages: Messages[];
   currentAssistantMessage: string;
   currentUserMessage: string;
+  isVoiceMode?: boolean;
 }
 
 const Transcript = ({
@@ -16,6 +17,7 @@ const Transcript = ({
   currentMessages,
   currentAssistantMessage,
   currentUserMessage,
+  isVoiceMode = false,
 }: TranscriptProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -30,13 +32,28 @@ const Transcript = ({
     <div className="transcript-container min-h-[400px]">
       {isEmpty ? (
         <div className="transcript-empty">
-          <Mic className="size-12 text-[#663820] mx-auto mb-4" />
-          <p className="transcript-empty-text">
-            <strong>No conversation yet</strong>
-          </p>
-          <p className="transcript-empty-hint">
-            Click the mic button to start chatting with the AI
-          </p>
+          {isVoiceMode ? (
+            <>
+              <Mic className="size-12 text-[#663820] mx-auto mb-4" />
+              <p className="transcript-empty-text">
+                <strong>No conversation yet</strong>
+              </p>
+              <p className="transcript-empty-hint">
+                Click the mic button to start chatting with the AI
+              </p>
+            </>
+          ) : (
+            <>
+              <MessageCircle className="size-12 text-[#663820] mx-auto mb-4" />
+              <p className="transcript-empty-text">
+                <strong>Start chatting</strong>
+              </p>
+              <p className="transcript-empty-hint">
+                Type a message below and press Enter or click Send to start
+                talking with the AI assistant about this book
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="transcript-messages">

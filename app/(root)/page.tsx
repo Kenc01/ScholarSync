@@ -29,6 +29,7 @@ const Page = async ({
         {books.map((book) => (
           <BookCard
             key={book._id}
+            id={book._id}
             title={book.title}
             author={book.author}
             coverURL={book.coverURL}

@@ -44,16 +44,23 @@ const HeroSection = () => {
                   </text>
                 </svg>
               </div>
-              <h1 className="library-hero-title">Your Library</h1>
+              <h1 className="library-hero-title">Study Assistant</h1>
             </div>
+            
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#663820] bg-white px-2 py-0.5 rounded border border-black/5 shadow-sm">
+                Developed by Keithlar
+              </span>
+            </div>
+
             <p className="library-hero-description">
-              Convert your books into interactive AI conversations.
+              Transform your books and class PDFs into interactive study partners.
               <br />
-              Listen, learn, and discuss your favorite reads.
+              Summarize, quiz, and master your material with AI.
             </p>
             <Link href="/books/new" className="library-cta-primary mt-4">
               <span className="text-2xl font-light">+</span>
-              <span>Add new book</span>
+              <span>Upload Study Material</span>
             </Link>
           </div>
 
@@ -87,23 +94,23 @@ const HeroSection = () => {
                 <div className="library-step-number">1</div>
                 <div className="flex flex-col">
                   <h3 className="library-step-title">Upload PDF</h3>
-                  <p className="library-step-description">Add your book file</p>
+                  <p className="library-step-description">Add your book or class file</p>
                 </div>
               </li>
               <li className="library-step-item">
                 <div className="library-step-number">2</div>
                 <div className="flex flex-col">
-                  <h3 className="library-step-title">AI Processing</h3>
+                  <h3 className="library-step-title">AI Indexing</h3>
                   <p className="library-step-description">
-                    We analyze the content
+                    We process your knowledge base
                   </p>
                 </div>
               </li>
               <li className="library-step-item">
                 <div className="library-step-number">3</div>
                 <div className="flex flex-col">
-                  <h3 className="library-step-title">Voice Chat</h3>
-                  <p className="library-step-description">Discuss with AI</p>
+                  <h3 className="library-step-title">Study Companion</h3>
+                  <p className="library-step-description">Chat, summarize & learn</p>
                 </div>
               </li>
             </ul>

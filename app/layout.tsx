@@ -3,6 +3,7 @@ import { IBM_Plex_Serif, Mona_Sans } from "next/font/google";
 
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 
@@ -20,9 +21,9 @@ const monaSans = Mona_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Bookified",
+  title: "ScholarSync",
   description:
-    "Transform your book into interactive AI conversations. Upload PDFs, and chat with your books using voice.",
+    "Your AI Study Companion. Sync your books and class PDFs to chat, summarize, and learn more effectively.",
 };
 
 export default function RootLayout({
@@ -34,16 +35,19 @@ export default function RootLayout({
     <ClerkProvider
       appearance={{
         layout: {
-          applicationName: "Keithlar Bookified",
+          applicationName: "ScholarSync",
         },
       }}
     >
       <html lang="en">
         <body
-          className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased`}
+          className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased flex flex-col min-h-screen`}
         >
           <Navbar />
-          {children}
+          <div className="flex-1">
+            {children}
+          </div>
+          <Footer />
           <Toaster />
         </body>
       </html>
