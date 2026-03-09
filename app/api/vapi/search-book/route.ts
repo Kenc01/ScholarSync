@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    console.log("Vapi search-book request:", JSON.stringify(body, null, 2));
+    console.log("DEBUG: Vapi search-book full request body:", JSON.stringify(body, null, 2));
 
     // Support multiple Vapi formats
     const functionCall = body?.message?.functionCall;
@@ -70,9 +70,11 @@ export async function POST(request: Request) {
     if (functionCall) {
       const { name, parameters } = functionCall;
       const parsed = parseArgs(parameters);
+      console.log(`DEBUG: Handling functionCall: ${name}`, parsed);
 
       if (name === "searchBook") {
         const result = await processBookSearch(parsed.bookId, parsed.query);
+        console.log("DEBUG: Search result:", result);
         return NextResponse.json(result);
       }
 
@@ -81,6 +83,7 @@ export async function POST(request: Request) {
 
     // Handle toolCallList format (array of calls)
     if (!toolCallList || toolCallList.length === 0) {
+      console.log("DEBUG: No tool calls found in request");
       return NextResponse.json({
         results: [{ result: "No tool calls found" }],
       });
@@ -92,15 +95,23 @@ export async function POST(request: Request) {
       const { id, function: func } = toolCall;
       const name = func?.name;
       const args = parseArgs(func?.arguments);
+      console.log(`DEBUG: Processing toolCall ID: ${id}, Name: ${name}`, args);
 
       if (name === "searchBook") {
         const searchResult = await processBookSearch(args.bookId, args.query);
-        results.push({ toolCallId: id, ...searchResult });
+        console.log(`DEBUG: Search result for ${id}:`, searchResult);
+        results.push({ 
+          toolCallId: id, 
+          role: "tool",
+          name: "searchBook",
+          result: searchResult.result 
+        });
       } else {
         results.push({ toolCallId: id, result: `Unknown function: ${name}` });
       }
     }
 
+    console.log("DEBUG: Returning results to Vapi:", JSON.stringify({ results }, null, 2));
     return NextResponse.json({ results });
   } catch (error) {
     console.error("Vapi search-book error:", error);

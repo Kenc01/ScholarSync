@@ -71,6 +71,8 @@ export function useVapi(book: IBook) {
   const durationRef = useLatestRef(duration);
   const voice = book.persona || DEFAULT_VOICE;
 
+  const pendingInitialMessage = useRef<string | null>(null);
+
   // Pre-initialize Vapi on mount to avoid startup delay
   useEffect(() => {
     try {
@@ -85,13 +87,32 @@ export function useVapi(book: IBook) {
     const handlers = {
       "call-start": () => {
         isStoppingRef.current = false;
-        setStatus("starting"); // AI speaks first, wait for it
+        setStatus("starting");
         setCurrentAssistantMessage("");
         setCurrentUserMessage("");
 
+        // If we have a pending message from a quick prompt, send it now
+        if (pendingInitialMessage.current) {
+          const text = pendingInitialMessage.current;
+          pendingInitialMessage.current = null;
+
+          // Small delay to ensure the session is ready to receive messages
+          setTimeout(() => {
+            getVapi().send({
+              type: "add-message",
+              message: {
+                role: "user",
+                content: text,
+              },
+            });
+            setStatus("thinking");
+          }, 1000);
+        }
+
         // Start duration timer
         startTimeRef.current = Date.now();
-        setDuration(0);
+  // ... (rest of call-start logic)
+
         timerRef.current = setInterval(() => {
           if (startTimeRef.current) {
             const newDuration = Math.floor(
@@ -266,10 +287,21 @@ export function useVapi(book: IBook) {
     };
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (initialUserMessage?: string) => {
     if (!userId) {
       setLimitError("Please sign in to start a voice session.");
       return;
+    }
+
+    // Store the user message to send it as soon as we connect
+    if (initialUserMessage) {
+      pendingInitialMessage.current = initialUserMessage;
+      
+      // Also add it to the local messages state so the user sees it immediately
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: initialUserMessage }
+      ]);
     }
 
     setLimitError(null);
@@ -297,12 +329,66 @@ export function useVapi(book: IBook) {
 
       sessionIdRef.current = sessionResult.sessionId || null;
 
-      const firstMessage = `Hey! Ready to chat about ${book.title}?`;
+      // If there's an initial user message, the AI should give a brief acknowledgement
+      // otherwise, use the standard greeting.
+      const firstMessage = initialUserMessage 
+        ? `Sure! Let me look into that for you.`
+        : `Hey! Ready to chat about ${book.title}?`;
+
+      const systemPrompt = `You are a specialized Student Learning Assistant for the book: "${book.title}" by ${book.author}.
+
+INSTRUCTIONS:
+- Use the 'searchBook' tool to find specific content from the book to answer the student's questions accurately.
+- ALWAYS search the book if the student asks about specific facts, summaries, or concepts from the material.
+- If the search results are empty, inform the student but provide general academic guidance.
+- Break down complex topics into simple terms.
+- Be encouraging and clear.
+
+The current bookId is: ${book._id}`;
 
       console.log("🎤 Starting VAPI call with ASSISTANT_ID:", ASSISTANT_ID);
 
       await getVapi().start(ASSISTANT_ID, {
         firstMessage,
+        silenceTimeoutSeconds: 120, // Increased to 2 minutes
+        model: {
+          provider: "openai",
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "searchBook",
+                description: "Search for specific content or information within the book to answer questions accurately.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    query: {
+                      type: "string",
+                      description: "The search query or topic to look up in the book."
+                    },
+                    bookId: {
+                      type: "string",
+                      description: "The ID of the book to search within."
+                    }
+                  },
+                  required: ["query", "bookId"]
+                }
+              },
+              server: {
+                // Use NEXT_PUBLIC_BASE_URL if set, otherwise fallback to window.location.origin
+                // IMPORTANT: If window.location.origin is localhost, Vapi won't be able to hit this.
+                url: `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/api/vapi/search-book`
+              }
+            }
+          ]
+        },
         variableValues: {
           title: book.title,
           author: book.author,
@@ -353,19 +439,21 @@ export function useVapi(book: IBook) {
       if (!text.trim() || !isActive) return;
 
       try {
-        // Send message as user input to the conversation
-        // This will trigger the assistant to process it and call tools if needed
+        // Standard way to inject user message and trigger response
         getVapi().send({
           type: "add-message",
-          role: "user",
           message: {
-            type: "string",
+            role: "user",
             content: text,
           },
-        } as any);
+        });
 
-        // Add user message to messages array
-        setMessages((prev) => [...prev, { role: "user", content: text }]);
+        // Add user message to messages array optimistically
+        setMessages((prev) => {
+          const isDupe = prev.some(m => m.role === "user" && m.content === text);
+          if (isDupe) return prev;
+          return [...prev, { role: "user", content: text }];
+        });
         setStatus("thinking");
       } catch (error) {
         console.error("Failed to send message:", error);
