@@ -5,8 +5,13 @@ import {MAX_FILE_SIZE} from "@/lib/constants";
 
 export async function POST(request: Request): Promise<NextResponse> {
     try {
-        const body = (await request.json()) as HandleUploadBody;
+        // Double check session before even looking at the request body
+        const session = await getSession();
+        if (!session?.userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
 
+        const body = (await request.json()) as HandleUploadBody;
         const token = process.env.BLOB_READ_WRITE_TOKEN;
         
         if (!token) {
@@ -18,8 +23,9 @@ export async function POST(request: Request): Promise<NextResponse> {
             body,
             request,
             onBeforeGenerateToken: async () => {
-                const session = await getSession();
-                const userId = session?.userId;
+                // Re-verify during token generation
+                const s = await getSession();
+                const userId = s?.userId;
 
                 if(!userId) {
                     throw new Error('Unauthorized: User not authenticated');
@@ -33,12 +39,9 @@ export async function POST(request: Request): Promise<NextResponse> {
                 }
         } ,
             onUploadCompleted: async ({ blob, tokenPayload }) => {
-                console.log('File uploaded to blob: ', blob.url)
-
                 const payload = tokenPayload ? JSON.parse(tokenPayload): null
                 const userId = payload?.userId;
-
-                // TODO: PostHog
+                console.log(`Upload completed for user: ${userId}, URL: ${blob.url}`);
             }
         });
 

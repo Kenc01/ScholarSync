@@ -5,27 +5,32 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connectToDatabase } from "@/database/mongoose";
 import User from "@/database/models/user.model";
-import { encrypt } from "@/lib/auth";
+import { setSessionCookie } from "@/lib/auth";
 
 // Standard User Signup
 export async function signup(formData: FormData) {
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
+  const firstName = (formData.get("firstName") as string)?.trim();
+  const lastName = (formData.get("lastName") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
 
   if (!email || !password || !firstName || !lastName) {
     return { error: "Missing required fields" };
   }
 
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters long" };
+  }
+
   await connectToDatabase();
 
   const userExists = await User.findOne({ email });
   if (userExists) {
-    return { error: "User already exists" };
+    return { error: "An account with this email already exists" };
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  // Use 12 rounds for better security (slightly slower but harder to crack)
+  const hashedPassword = await bcrypt.hash(password, 12);
 
   // Auto-promote ONLY the master admin email
   const role = email === 'keith.admin.study@gmail.com' ? "admin" : "user";
@@ -39,29 +44,26 @@ export async function signup(formData: FormData) {
     status: "active"
   });
 
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await encrypt({
+  await setSessionCookie({
     userId: user._id.toString(),
     email: user.email,
     firstName: user.firstName,
     role: user.role,
-    expires,
   });
-
-  (await cookies()).set("session", session, { expires, httpOnly: true });
 
   redirect("/");
 }
 
 // Special Admin Signup (Hidden Page)
 export async function adminSignup(formData: FormData) {
-  const firstName = formData.get("firstName") as string;
-  const lastName = formData.get("lastName") as string;
-  const email = formData.get("email") as string;
+  const firstName = (formData.get("firstName") as string)?.trim();
+  const lastName = (formData.get("lastName") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
   const secretKey = formData.get("secretKey") as string;
 
-  const ADMIN_SECRET = "scholar-admin-2024";
+  // IMPORTANT: Move this to process.env.ADMIN_SECRET in production
+  const ADMIN_SECRET = process.env.ADMIN_SECRET || "scholar-admin-2024";
 
   if (!email || !password || !firstName || !lastName || !secretKey) {
     return { error: "Missing required fields" };
@@ -71,6 +73,10 @@ export async function adminSignup(formData: FormData) {
     return { error: "Invalid Admin Secret Key" };
   }
 
+  if (password.length < 8) {
+    return { error: "Admin password must be at least 8 characters long" };
+  }
+
   await connectToDatabase();
 
   const userExists = await User.findOne({ email });
@@ -78,7 +84,7 @@ export async function adminSignup(formData: FormData) {
     return { error: "User already exists" };
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 12);
 
   const user = await User.create({
     firstName,
@@ -89,50 +95,43 @@ export async function adminSignup(formData: FormData) {
     status: "active"
   });
 
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await encrypt({
+  await setSessionCookie({
     userId: user._id.toString(),
     email: user.email,
     firstName: user.firstName,
     role: user.role,
-    expires,
   });
-
-  (await cookies()).set("session", session, { expires, httpOnly: true });
 
   redirect("/admin");
 }
 
 export async function login(formData: FormData) {
-  const email = formData.get("email") as string;
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
 
   if (!email || !password) {
-    return { error: "Missing email or password" };
+    return { error: "Please enter both email and password" };
   }
 
   await connectToDatabase();
 
   const user = await User.findOne({ email });
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    return { error: "Invalid credentials" };
+    // Generic error message to prevent email enumeration
+    return { error: "Invalid email or password" };
   }
 
   // BAN CHECK
   if (user.status === "banned") {
-    return { error: "Your account has been suspended. Please contact support." };
+    return { error: "This account has been suspended for security reasons." };
   }
 
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await encrypt({
+  await setSessionCookie({
     userId: user._id.toString(),
     email: user.email,
     firstName: user.firstName,
     role: user.role,
-    expires,
   });
-
-  (await cookies()).set("session", session, { expires, httpOnly: true });
 
   if (user.role === "admin") {
     redirect("/admin");
@@ -142,6 +141,6 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
-  (await cookies()).set("session", "", { expires: new Date(0) });
+  (await cookies()).delete("session");
   redirect("/sign-in");
 }

@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   title: "ScholarSync",
   description:
     "Your AI Study Companion. Sync your books and class PDFs to chat, summarize, and learn more effectively.",
+  icons: {
+    icon: "/assets/open-book.svg",
+  },
 };
 
 export default function RootLayout({
