@@ -7,15 +7,65 @@ import { connectToDatabase } from "@/database/mongoose";
 import User from "@/database/models/user.model";
 import { setSessionCookie } from "@/lib/auth";
 
-// Standard User Signup
+import OTP from "@/database/models/otp.model";
+import { sendOtpEmail } from "@/lib/nodemailer";
+
+// Helper to validate Gmail (supporting + labels)
+const isGmail = (email: string) => {
+  return /^[a-z0-9](\.?[a-z0-9+])*@gmail\.com$/.test(email.toLowerCase());
+};
+
+// Generate a random 6-digit OTP
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+export async function requestOtp(email: string) {
+  console.log(`\n--- OTP REQUEST START ---`);
+  console.log(`Email: ${email}`);
+  
+  if (!email) return { error: "Email is required" };
+  if (!isGmail(email)) return { error: "Please use a valid @gmail.com address." };
+
+  try {
+    await connectToDatabase();
+
+    const userExists = await User.findOne({ email });
+    if (userExists) return { error: "An account with this email already exists" };
+
+    // Clear any existing OTPs for this email first
+    await OTP.deleteMany({ email });
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+
+    // CRITICAL: LOG THIS SO YOU CAN SEE IT IN YOUR TERMINAL
+    console.log(`>>> VERIFICATION CODE FOR ${email}: [ ${otp} ] <<<`);
+
+    await OTP.create({ email, otp, expiresAt });
+
+    await sendOtpEmail(email, otp);
+    console.log(`[OTP] Email sent successfully to ${email}`);
+    console.log(`--- OTP REQUEST END ---\n`);
+    return { success: true };
+  } catch (err: any) {
+    console.error("[OTP] Error:", err.message);
+    return { error: err.message || "Failed to send verification code." };
+  }
+}
+
+// Standard User Signup with OTP
 export async function signup(formData: FormData) {
   const firstName = (formData.get("firstName") as string)?.trim();
   const lastName = (formData.get("lastName") as string)?.trim();
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const password = formData.get("password") as string;
+  const otpCode = (formData.get("otp") as string)?.trim();
 
-  if (!email || !password || !firstName || !lastName) {
+  if (!email || !password || !firstName || !lastName || !otpCode) {
     return { error: "Missing required fields" };
+  }
+
+  if (!isGmail(email)) {
+    return { error: "Only @gmail.com addresses are allowed." };
   }
 
   if (password.length < 8) {
@@ -23,6 +73,15 @@ export async function signup(formData: FormData) {
   }
 
   await connectToDatabase();
+
+  // VERIFY OTP
+  const otpRecord = await OTP.findOne({ email, otp: otpCode });
+  if (!otpRecord) {
+    return { error: "Invalid or expired verification code." };
+  }
+
+  // Delete OTP after successful verification
+  await OTP.deleteOne({ _id: otpRecord._id });
 
   const userExists = await User.findOne({ email });
   if (userExists) {
