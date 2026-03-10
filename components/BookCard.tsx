@@ -3,16 +3,21 @@
 import Link from "next/link";
 import { BookCardProps } from "@/types";
 import Image from "next/image";
-import { Trash2, AlertTriangle, X, MoreVertical } from "lucide-react";
+import { Trash2, AlertTriangle, MoreVertical } from "lucide-react";
 import { deleteBook } from "@/lib/actions/book.actions";
 import { toast } from "sonner";
 import { useState, useRef, useEffect } from "react";
+import { useSession } from "@/hooks/useSession";
 
-const BookCard = ({ id, title, author, coverURL, slug }: BookCardProps) => {
+const BookCard = ({ id, title, author, coverURL, slug, isSample = false }: BookCardProps) => {
+  const { session } = useSession();
+  const userId = session?.userId;
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const canManage = userId && !isSample;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -52,11 +57,12 @@ const BookCard = ({ id, title, author, coverURL, slug }: BookCardProps) => {
             <figure className="book-card-figure">
               <div className="book-card-cover-wrapper">
                 <Image
-                  src={coverURL}
+                  src={coverURL || "/assets/book-cover.svg"}
                   alt={title}
                   width={133}
                   height={200}
                   className="book-card-cover"
+                  priority={isSample}
                 />
               </div>
 
@@ -69,45 +75,47 @@ const BookCard = ({ id, title, author, coverURL, slug }: BookCardProps) => {
         </Link>
 
         {/* More Options Menu (Three Dots) */}
-        <div className="absolute top-2 right-2 z-20" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsMenuOpen(!isMenuOpen);
-            }}
-            disabled={isDeleting}
-            className={`p-2 bg-white/90 text-[#212a3b] rounded-full transition-all shadow-md backdrop-blur-sm border border-black/5 hover:bg-white ${
-              isMenuOpen ? "opacity-100 scale-100" : "opacity-0 group-hover:opacity-100 scale-90 hover:scale-100"
-            }`}
-            title="More options"
-          >
-            <MoreVertical size={16} />
-          </button>
-
-          {isMenuOpen && (
-            <div 
-              className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-black/5 py-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200"
+        {canManage && (
+          <div className="absolute top-2 right-2 z-20" ref={menuRef}>
+            <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                setIsMenuOpen(!isMenuOpen);
               }}
+              disabled={isDeleting}
+              className={`p-2 bg-white/90 text-[#212a3b] rounded-full transition-all shadow-md backdrop-blur-sm border border-black/5 hover:bg-white ${
+                isMenuOpen ? "opacity-100 scale-100" : "opacity-0 group-hover:opacity-100 scale-90 hover:scale-100"
+              }`}
+              title="More options"
             >
-              <button
+              <MoreVertical size={16} />
+            </button>
+
+            {isMenuOpen && (
+              <div 
+                className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-black/5 py-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setIsMenuOpen(false);
-                  setShowConfirm(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium text-left"
               >
-                <Trash2 size={16} />
-                Delete Material
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsMenuOpen(false);
+                    setShowConfirm(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium text-left"
+                >
+                  <Trash2 size={16} />
+                  Delete Material
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Custom ScholarSync Confirm Modal */}

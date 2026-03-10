@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Vapi from "@vapi-ai/web";
-import { useAuth } from "@clerk/nextjs";
+import { useSession } from "@/hooks/useSession";
 
 import { ASSISTANT_ID, DEFAULT_VOICE, VOICE_SETTINGS } from "@/lib/constants";
 import { getVoice } from "@/lib/utils";
@@ -48,10 +48,12 @@ export type CallStatus =
   | "starting"
   | "listening"
   | "thinking"
+  | "searching"
   | "speaking";
 
 export function useVapi(book: IBook) {
-  const { userId } = useAuth();
+  const { session } = useSession();
+  const userId = session?.userId;
   // const { limits } = useSubscription();
 
   const [status, setStatus] = useState<CallStatus>("idle");
@@ -111,7 +113,6 @@ export function useVapi(book: IBook) {
 
         // Start duration timer
         startTimeRef.current = Date.now();
-  // ... (rest of call-start logic)
 
         timerRef.current = setInterval(() => {
           if (startTimeRef.current) {
@@ -119,16 +120,6 @@ export function useVapi(book: IBook) {
               (Date.now() - startTimeRef.current) / TIMER_INTERVAL_MS,
             );
             setDuration(newDuration);
-
-            // Check duration limit
-            // if (newDuration >= maxDurationRef.current) {
-            //     getVapi().stop();
-            //     setLimitError(
-            //         `Session time limit (${Math.floor(
-            //             maxDurationRef.current / SECONDS_PER_MINUTE,
-            //         )} minutes) reached. Upgrade your plan for longer sessions.`,
-            //     );
-            // }
           }
         }, TIMER_INTERVAL_MS);
       },
@@ -169,6 +160,17 @@ export function useVapi(book: IBook) {
       },
 
       message: (message: any) => {
+        // Handle tool calls for searching status
+        if (message.type === "tool-calls") {
+          const isSearching = message.toolCalls?.some(
+            (tc: any) => tc.function?.name === "searchBook"
+          );
+          if (isSearching && !isStoppingRef.current) {
+            setStatus("searching");
+          }
+          return;
+        }
+
         if (message.type !== "transcript") return;
 
         console.log(
@@ -184,6 +186,10 @@ export function useVapi(book: IBook) {
             setCurrentUserMessage(message.transcript);
           } else if (message.role === "assistant") {
             setCurrentAssistantMessage(message.transcript);
+            // If we're starting to get an assistant transcript, we're definitely speaking/responding
+            if (status !== "speaking" && !isStoppingRef.current) {
+                setStatus("speaking");
+            }
           }
           return;
         }
@@ -308,11 +314,14 @@ export function useVapi(book: IBook) {
     setStatus("connecting");
 
     try {
+      console.log("🎤 start function: checking session/userId", { userId });
       // Run microphone check and session creation in parallel
       const [stream, sessionResult] = await Promise.all([
         navigator.mediaDevices.getUserMedia({ audio: true }),
-        startVoiceSession(userId, book._id),
+        startVoiceSession(userId!, book._id),
       ]);
+
+      console.log("🎤 start function: sessionResult", sessionResult);
 
       // Stop microphone stream immediately after permission check
       stream.getTracks().forEach((track) => track.stop());
@@ -329,20 +338,28 @@ export function useVapi(book: IBook) {
 
       sessionIdRef.current = sessionResult.sessionId || null;
 
+      // Use the actual voice name for a more personal introduction
+      const voiceName = getVoice(voice).name;
+      
       // If there's an initial user message, the AI should give a brief acknowledgement
       // otherwise, use the standard greeting.
       const firstMessage = initialUserMessage 
         ? `Sure! Let me look into that for you.`
-        : `Hey! Ready to chat about ${book.title}?`;
+        : `Hey! I'm ${voiceName}, your AI learning partner for ${book.title}. Ready to dive in?`;
 
-      const systemPrompt = `You are a specialized Student Learning Assistant for the book: "${book.title}" by ${book.author}.
+      const systemPrompt = `You are ${voiceName}, a specialized Student Learning Assistant for the book: "${book.title}" by ${book.author}.
+
+PERSONALITY & VOICE:
+- Be warm, encouraging, and highly conversational.
+- Use natural filler phrases like "Hmm, let me see...", "That's an interesting point, give me a second to check the text...", or "I'm looking that up for you right now."
+- If you need to use the 'searchBook' tool, ALWAYS acknowledge the request first with a brief filler so the student knows you are working.
+- Keep your responses concise and focused on the audio format—don't use long lists or complex formatting.
 
 INSTRUCTIONS:
 - Use the 'searchBook' tool to find specific content from the book to answer the student's questions accurately.
 - ALWAYS search the book if the student asks about specific facts, summaries, or concepts from the material.
 - If the search results are empty, inform the student but provide general academic guidance.
 - Break down complex topics into simple terms.
-- Be encouraging and clear.
 
 The current bookId is: ${book._id}`;
 
@@ -429,9 +446,11 @@ The current bookId is: ${book._id}`;
   }, []);
 
   const isActive =
+    status === "connecting" ||
     status === "starting" ||
     status === "listening" ||
     status === "thinking" ||
+    status === "searching" ||
     status === "speaking";
 
   const sendMessage = useCallback(

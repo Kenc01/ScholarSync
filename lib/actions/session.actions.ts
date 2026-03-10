@@ -6,33 +6,33 @@ import VoiceSession from "@/database/models/voice-session.model";
 import { getCurrentBillingPeriodStart } from "@/lib/subscription-constants";
 
 export const startVoiceSession = async (
-  clerkId: string,
+  userId: string,
   bookId: string,
 ): Promise<StartSessionResult> => {
   try {
+    console.log(`[startVoiceSession] Called for userId: ${userId}, bookId: ${bookId}`);
     await connectToDatabase();
 
-    //Limits/Plan to see whether a session is allowed.
-
     const session = await VoiceSession.create({
-      clerkId,
+      userId,
       bookId,
       startedAt: new Date(),
       billingPeriodStart: getCurrentBillingPeriodStart(),
       durationSeconds: 0,
     });
 
+    console.log(`[startVoiceSession] Session created: ${session._id}`);
+
     return {
       success: true,
       sessionId: session._id.toString(),
-
-      //maxDurationMinutes: check.maxDurationMinutes.
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error starting voice session:", error);
     return {
       success: false,
-      error: "Failed to start a voice session. Please try again later.",
+      error: `Failed to start voice session: ${errorMessage}`,
     };
   }
 };
@@ -42,6 +42,7 @@ export const endVoiceSession = async (
   durationSeconds: number,
 ): Promise<EndSessionResult> => {
   try {
+    console.log(`[endVoiceSession] Called for sessionId: ${sessionId}, duration: ${durationSeconds}s`);
     await connectToDatabase();
 
     const result = await VoiceSession.findByIdAndUpdate(sessionId, {
@@ -49,8 +50,12 @@ export const endVoiceSession = async (
       durationSeconds,
     });
 
-    if (!result) return { success: false, error: "Voice session not found." };
+    if (!result) {
+      console.warn(`[endVoiceSession] Session not found: ${sessionId}`);
+      return { success: false, error: "Voice session not found." };
+    }
 
+    console.log(`[endVoiceSession] Session updated successfully`);
     return { success: true };
   } catch (e) {
     console.error("Error ending voice session", e);

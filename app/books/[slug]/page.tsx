@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -11,7 +11,8 @@ export default async function BookDetailsPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { userId } = await auth();
+  const session = await getSession();
+  const userId = session?.userId;
 
   if (!userId) {
     redirect("/sign-in");

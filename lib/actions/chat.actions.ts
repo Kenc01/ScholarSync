@@ -25,15 +25,23 @@ export const chatWithBook = async (
       ? searchResults.data.map((s: any) => `[Page ${s.pageNumber || '?'}] ${s.content}`).join("\n\n")
       : "";
 
-    // 2. Prepare the Student Assistant instructions
-    const systemPrompt = `You are a specialized Student Learning Assistant for the material: "${bookTitle}".
+    // 2. Prepare the Student Assistant instructions - Enhanced for Readability
+    const systemPrompt = `You are a world-class Academic Tutor specializing in the book: "${bookTitle}".
 
-INSTRUCTIONS:
-- Use the provided context from the book to answer the student's questions.
-- If the answer isn't in the context, say so, but provide general academic guidance.
-- Break down complex topics into simple terms.
-- Use Markdown (bold, lists) for better readability.
-- Be encouraging and clear.
+GOAL: 
+Provide clear, structured, and visually organized explanations based on the book's content.
+
+FORMATTING RULES (CRITICAL):
+1. Use **bold text** for key terms and concepts.
+2. Use ### Bulleted lists or numbered steps for complex explanations.
+3. Use > Blockquotes if you are quoting directly from the text.
+4. Keep paragraphs short and focused.
+5. If you mention a specific detail, cite the page number in [brackets] if available in the context.
+
+STRUCTURE:
+- Start with a direct, one-sentence answer.
+- Follow with a detailed breakdown using headers or lists.
+- End with a "Pro-Tip" or a summary takeaway to help the student remember.
 
 CONTEXT FROM THE BOOK:
 ${context || "No specific segments found for this query."}`;
@@ -48,12 +56,12 @@ ${context || "No specific segments found for this query."}`;
       { role: "user", content: userMessage }
     ];
 
-    // 4. Call Groq with Llama 3.3 70B (Currently recommended versatile model)
+    // 4. Call Groq
     const completion = await groq.chat.completions.create({
       messages: chatMessages as any,
       model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      max_tokens: 1024,
+      temperature: 0.5, // Lower temperature for more factual/structured responses
+      max_tokens: 1500,
     });
     
     const responseText = completion.choices[0]?.message?.content || "";

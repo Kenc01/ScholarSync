@@ -82,8 +82,12 @@ const ChatInterface = ({ book }: { book: IBook }) => {
       if (isActive) {
         sendVapiMessage(messageText);
       } else {
-        toast.error("Please start the voice conversation first.");
-        return;
+        // Start the voice session with this message
+        try {
+          await startVapi(messageText);
+        } catch (error) {
+          console.error("Failed to start voice session:", error);
+        }
       }
       setInput("");
       return;
@@ -118,14 +122,12 @@ const ChatInterface = ({ book }: { book: IBook }) => {
   };
 
   const toggleVoiceMode = () => {
-    if (isVoiceMode && isActive) {
-      stopVapi();
-    }
+    // We don't stopVapi here anymore so the conversation stays active in the background
     setIsVoiceMode(!isVoiceMode);
     if (!isVoiceMode) {
-      toast.info("Voice mode enabled. Click 'Start Conversation' to begin.");
+      toast.info("Voice mode enabled.");
     } else {
-      toast.success("Voice mode disabled (Silent Chat)");
+      toast.success("Silent mode enabled.");
     }
   };
 
@@ -181,18 +183,6 @@ const ChatInterface = ({ book }: { book: IBook }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Stop AI Button */}
-          {isVoiceMode && isActive && (
-            <button
-              onClick={stopVapi}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-red-500 text-white shadow-md hover:bg-red-600 transition-all animate-in fade-in zoom-in"
-              title="Stop AI / End Session"
-            >
-              <MicOff size={14} />
-              <span>Stop AI</span>
-            </button>
-          )}
-
           {/* Voice Mode Toggle */}
           <button
             onClick={toggleVoiceMode}
@@ -383,15 +373,15 @@ const ChatInterface = ({ book }: { book: IBook }) => {
               onKeyPress={handleKeyPress}
               placeholder={
                 isVoiceMode 
-                  ? (isActive ? "Type and AI will read the response..." : "Click 'Start' to enable typing...") 
+                  ? "Type a message to chat..." 
                   : "Ask a question about this material..."
               }
               className="w-full pl-12 pr-16 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-[#212a3b] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#663820] focus:bg-white focus:border-transparent transition-all shadow-inner"
-              disabled={isLoading || (isVoiceMode && !isActive)}
+              disabled={isLoading || (isVoiceMode && status !== "idle" && !isActive)}
             />
             <button
               onClick={() => handleSendMessage()}
-              disabled={isLoading || !input.trim() || (isVoiceMode && !isActive)}
+              disabled={isLoading || !input.trim() || (isVoiceMode && status !== "idle" && !isActive)}
               className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-[#663820] text-white rounded-xl hover:bg-[#7a4528] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center shadow-md"
             >
               {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
@@ -400,24 +390,49 @@ const ChatInterface = ({ book }: { book: IBook }) => {
 
           {/* Real-time Voice Button */}
           {isVoiceMode && (
-            <button
-              onClick={isActive ? stopVapi : startVapi}
-              disabled={status === "connecting" || (!isActive && isVoiceMode)}
-              className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all shadow-md ${
-                isActive 
-                  ? "bg-red-500 text-white animate-pulse" 
-                  : "bg-[#212a3b] text-white opacity-50 cursor-not-allowed"
-              }`}
-              title={isActive ? "Stop Voice" : "Start conversation above"}
-            >
-              {status === "connecting" ? (
-                <Loader2 size={24} className="animate-spin" />
-              ) : isActive ? (
-                <MicOff size={24} />
-              ) : (
-                <Mic size={24} />
+            <div className="relative">
+              {isActive && (
+                <div className="absolute inset-0 bg-red-500 rounded-2xl animate-ping opacity-20" />
               )}
-            </button>
+              <button
+                onClick={isActive ? stopVapi : () => startVapi()}
+                disabled={status === "connecting"}
+                className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all shadow-md z-10 relative ${
+                  isActive 
+                    ? "bg-red-500 text-white" 
+                    : "bg-[#212a3b] text-white hover:bg-[#3d485e]"
+                }`}
+                title={isActive ? "Stop Voice" : "Start Voice Conversation"}
+              >
+                {status === "connecting" ? (
+                  <Loader2 size={24} className="animate-spin" />
+                ) : isActive ? (
+                  <MicOff size={24} />
+                ) : (
+                  <Mic size={24} />
+                )}
+              </button>
+              
+              {/* Mini Waveform */}
+              {isActive && (
+                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-0.5 h-3 justify-center w-12">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className={`w-0.5 bg-red-500 rounded-full transition-all duration-300 ${
+                        status === "speaking" || status === "listening"
+                          ? "animate-waveform"
+                          : "h-0.5 opacity-30"
+                      }`}
+                      style={{
+                        animationDelay: `${i * 0.1}s`,
+                        height: status === "speaking" || status === "listening" ? "100%" : "2px"
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

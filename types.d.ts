@@ -11,7 +11,7 @@ import { UploadSchema } from "@/lib/zod";
 
 export interface IBook extends Document {
   _id: string;
-  clerkId: string;
+  userId: string;
   title: string;
   slug: string;
   author: string;
@@ -27,7 +27,7 @@ export interface IBook extends Document {
 }
 
 export interface IBookSegment extends Document {
-  clerkId: string;
+  userId: string;
   bookId: Types.ObjectId;
   content: string;
   segmentIndex: number;
@@ -39,7 +39,7 @@ export interface IBookSegment extends Document {
 
 export interface IVoiceSession extends Document {
   _id: string;
-  clerkId: string;
+  userId: string;
   bookId: Types.ObjectId;
   startedAt: Date;
   endedAt?: Date;
@@ -56,7 +56,7 @@ export interface IVoiceSession extends Document {
 export type BookUploadFormValues = z.infer<typeof UploadSchema>;
 
 export interface CreateBook {
-  clerkId: string;
+  userId: string;
   title: string;
   author: string;
   persona?: string;
@@ -80,6 +80,7 @@ export interface BookCardProps {
   author: string;
   coverURL: string;
   slug: string;
+  isSample?: boolean;
 }
 
 export interface Messages {

@@ -45,6 +45,11 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --shadow-soft-sm: var(--shadow-soft-sm);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-soft-md: var(--shadow-soft-md);
+  --shadow-soft-lg: var(--shadow-soft-lg);
+  --shadow-soft-xl: var(--shadow-soft-lg); /* Fallback */
 }
 
 :root {
@@ -613,6 +618,40 @@
     @apply text-[var(--text-muted)] text-sm mt-1;
   }
 
+  /* Enhanced Chat Bubbles */
+  .chat-bubble {
+    @apply p-5 rounded-[2rem] shadow-soft border border-black/5 text-base md:text-lg leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-300;
+  }
+  .user-bubble {
+    @apply bg-[#663820] text-white rounded-br-none;
+  }
+  .ai-bubble {
+    @apply bg-white text-[#212a3b] rounded-bl-none;
+  }
+
+  /* Markdown specific styles for AI bubble */
+  .ai-bubble h1, .ai-bubble h2, .ai-bubble h3 {
+    @apply font-serif font-bold text-[#212a3b] mt-4 mb-2;
+  }
+  .ai-bubble p {
+    @apply mb-4 last:mb-0;
+  }
+  .ai-bubble ul, .ai-bubble ol {
+    @apply ml-6 mb-4 space-y-2;
+  }
+  .ai-bubble ul {
+    @apply list-disc;
+  }
+  .ai-bubble ol {
+    @apply list-decimal;
+  }
+  .ai-bubble strong {
+    @apply text-[#663820] font-bold;
+  }
+  .ai-bubble blockquote {
+    @apply border-l-4 border-[#f3e4c7] pl-4 italic text-[#3d485e] my-4;
+  }
+
   /* ===========================================
      VOICE SELECTOR COMPONENT
      =========================================== */
@@ -725,14 +764,40 @@
   /* ===========================================
      BACK BUTTON (FLOATING)
      =========================================== */
-  .back-btn-floating {
-    @apply fixed top-24 left-6 z-50 size-12 rounded-full bg-white border border-[var(--border-subtle)] flex items-center justify-center transition-all;
-    box-shadow: var(--shadow-soft);
+  /* Premium Design Utilities */
+  .bg-paper {
+    background-color: #fcfaf2;
+    background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+  }
 
-    &:hover {
-      box-shadow: var(--shadow-soft-md);
-      transform: translateY(-2px);
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-soft-lg;
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#212a3b] to-[#663820];
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
     }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s ease-out forwards;
   }
 }
 

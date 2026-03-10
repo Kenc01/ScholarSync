@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {handleUpload, HandleUploadBody} from "@vercel/blob/client";
-import {auth} from "@clerk/nextjs/server";
+import {getSession} from "@/lib/auth";
 import {MAX_FILE_SIZE} from "@/lib/constants";
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -18,7 +18,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             body,
             request,
             onBeforeGenerateToken: async () => {
-                const { userId } = await auth();
+                const session = await getSession();
+                const userId = session?.userId;
 
                 if(!userId) {
                     throw new Error('Unauthorized: User not authenticated');

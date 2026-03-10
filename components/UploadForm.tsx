@@ -24,7 +24,7 @@ import {
 import FileUploader from "./FileUploader";
 import VoiceSelector from "./VoiceSelector";
 import LoadingOverlay from "./LoadingOverlay";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useSession } from "@/hooks/useSession";
 import { toast } from "sonner";
 import {
   checkBookExists,
@@ -38,7 +38,8 @@ import { upload } from "@vercel/blob/client";
 const UploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { userId } = useAuth();
+  const { session } = useSession();
+  const userId = session?.userId;
   const router = useRouter();
 
   useEffect(() => {
@@ -120,7 +121,7 @@ const UploadForm = () => {
       }
 
       const book = await createBook({
-        clerkId: userId,
+        userId: userId,
         title: data.title,
         author: data.author,
         persona: data.persona,
@@ -138,9 +139,6 @@ const UploadForm = () => {
               ? book.error.message
               : "Failed to create book";
         toast.error(errorMessage);
-        if (book.isBillingError) {
-          router.push("/subscriptions");
-        }
         return;
       }
 

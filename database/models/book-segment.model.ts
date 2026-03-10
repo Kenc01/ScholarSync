@@ -3,7 +3,8 @@ import { IBookSegment } from "@/types";
 
 const BookSegmentSchema = new Schema<IBookSegment>(
   {
-    clerkId: { type: String, required: true },
+    userId: { type: String, required: true },
+    clerkId: { type: String }, // Keep for legacy
     bookId: {
       type: Schema.Types.ObjectId,
       ref: "Book",
@@ -20,10 +21,8 @@ const BookSegmentSchema = new Schema<IBookSegment>(
 
 BookSegmentSchema.index({ bookId: 1, segmentIndex: 1 }, { unique: true });
 BookSegmentSchema.index({ bookId: 1, pageNumber: 1 });
-
 BookSegmentSchema.index({ bookId: 1, content: "text" });
 
-const BookSegment =
-  models.BookSegment || model<IBookSegment>("BookSegment", BookSegmentSchema);
+const BookSegment = models?.BookSegment || model<IBookSegment>("BookSegment", BookSegmentSchema);
 
 export default BookSegment;

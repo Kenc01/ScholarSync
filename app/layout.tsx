@@ -4,7 +4,6 @@ import { IBM_Plex_Serif, Mona_Sans } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -32,25 +31,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        layout: {
-          applicationName: "ScholarSync",
-        },
-      }}
-    >
-      <html lang="en">
-        <body
-          className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased flex flex-col min-h-screen`}
-        >
-          <Navbar />
-          <div className="flex-1">
-            {children}
-          </div>
-          <Footer />
-          <Toaster />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body
+        className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased flex flex-col min-h-screen`}
+      >
+        <Navbar />
+        <div className="flex-1">
+          {children}
+        </div>
+        <Footer />
+        <Toaster />
+      </body>
+    </html>
   );
 }

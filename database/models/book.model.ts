@@ -3,7 +3,8 @@ import { IBook } from "@/types";
 
 const BookSchema = new Schema<IBook>(
   {
-    clerkId: { type: String, required: true },
+    userId: { type: String, required: true },
+    clerkId: { type: String }, // Keep for legacy compatibility
     title: { type: String, required: true },
     slug: {
       type: String,
@@ -24,6 +25,6 @@ const BookSchema = new Schema<IBook>(
   { timestamps: true },
 );
 
-const Book = models.Book || model<IBook>("Book", BookSchema);
+const Book = models?.Book || model<IBook>("Book", BookSchema);
 
 export default Book;
