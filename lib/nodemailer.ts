@@ -29,7 +29,11 @@ export const sendOtpEmail = async (email: string, otp: string) => {
     await transporter.sendMail(mailOptions);
     return { success: true };
   } catch (error: any) {
-    console.error("Nodemailer Error:", error.message);
-    throw new Error("Failed to send verification email via Gmail.");
+    console.error("--- NODEMAILER ERROR DETAIL ---");
+    console.error("Error Code:", error.code);
+    console.error("Error Message:", error.message);
+    console.error("User:", process.env.EMAIL_USER);
+    console.error("-------------------------------");
+    throw new Error(`Gmail Error: ${error.message}`);
   }
 };
