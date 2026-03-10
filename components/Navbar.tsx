@@ -6,11 +6,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/hooks/useSession";
 import { logout } from "@/lib/actions/auth.actions";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, ShieldAlert } from "lucide-react";
 
 const Navbar = () => {
   const pathName = usePathname();
   const { session, status } = useSession();
+  const isAdmin = session?.role === "admin";
 
   return (
     <header className="w-full fixed z-50 bg-[var(--bg-primary)]">
@@ -26,19 +27,38 @@ const Navbar = () => {
         </Link>
 
         <nav className="w-fit flex gap-7.5 items-center">
-          <Link
-            href="/"
-            className={cn(
-              "nav-link-base",
-              pathName === "/"
-                ? "nav-link-active"
-                : "text-black hover:opacity-70",
-            )}
-          >
-            Library
-          </Link>
+          {/* Regular User Link */}
+          {!isAdmin && (
+            <Link
+              href="/"
+              className={cn(
+                "nav-link-base",
+                pathName === "/"
+                  ? "nav-link-active"
+                  : "text-black hover:opacity-70",
+              )}
+            >
+              Library
+            </Link>
+          )}
 
-          {status === "authenticated" && (
+          {/* Admin Specific Link */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                "nav-link-base flex items-center gap-2",
+                pathName.startsWith("/admin")
+                  ? "nav-link-active"
+                  : "text-black hover:opacity-70 font-bold",
+              )}
+            >
+              <ShieldAlert size={18} className="text-[#663820]" /> Control Center
+            </Link>
+          )}
+
+          {/* Standard User "Add New" - Hidden for Admin */}
+          {status === "authenticated" && !isAdmin && (
             <Link
               href="/books/new"
               className={cn(
@@ -52,7 +72,7 @@ const Navbar = () => {
             </Link>
           )}
 
-          <div className="flex gap-7.5 items-center">
+          <div className="flex gap-7.5 items-center ml-4">
             {status === "unauthenticated" && (
               <>
                 <Link href="/sign-in" className="nav-link-base text-black hover:opacity-70">
@@ -67,11 +87,14 @@ const Navbar = () => {
             {status === "authenticated" && (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-[#f3e4c7] flex items-center justify-center text-[#212a3b]">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center",
+                    isAdmin ? "bg-[#212a3b] text-white" : "bg-[#f3e4c7] text-[#663820]"
+                  )}>
                     <User size={18} />
                   </div>
-                  <span className="nav-user-name">
-                    {session?.firstName}
+                  <span className="nav-user-name font-medium">
+                    {session?.firstName} {isAdmin && "(Admin)"}
                   </span>
                 </div>
                 <button 

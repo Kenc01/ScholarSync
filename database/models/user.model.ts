@@ -6,6 +6,7 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   avatar?: string;
+  role: "user" | "admin";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,10 +18,16 @@ const UserSchema = new Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     avatar: { type: String },
+    role: { type: String, enum: ["user", "admin"], default: "user" },
   },
   { timestamps: true },
 );
 
-const User = models?.User || model("User", UserSchema);
+// Force re-load to include role field in existing environments
+if (models.User) {
+  delete (models as any).User;
+}
+
+const User = model<IUser>("User", UserSchema);
 
 export default User;
