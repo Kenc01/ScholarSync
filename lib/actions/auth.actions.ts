@@ -27,7 +27,7 @@ export async function signup(formData: FormData) {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Auto-promote this specific email to admin
+  // Auto-promote ONLY the master admin email
   const role = email === 'keith.admin.study@gmail.com' ? "admin" : "user";
 
   const user = await User.create({
@@ -35,7 +35,8 @@ export async function signup(formData: FormData) {
     lastName,
     email,
     password: hashedPassword,
-    role
+    role,
+    status: "active"
   });
 
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -52,7 +53,7 @@ export async function signup(formData: FormData) {
   redirect("/");
 }
 
-// Special Admin Signup
+// Special Admin Signup (Hidden Page)
 export async function adminSignup(formData: FormData) {
   const firstName = formData.get("firstName") as string;
   const lastName = formData.get("lastName") as string;
@@ -60,7 +61,6 @@ export async function adminSignup(formData: FormData) {
   const password = formData.get("password") as string;
   const secretKey = formData.get("secretKey") as string;
 
-  // You can change this secret key to whatever you want
   const ADMIN_SECRET = "scholar-admin-2024";
 
   if (!email || !password || !firstName || !lastName || !secretKey) {
@@ -85,7 +85,8 @@ export async function adminSignup(formData: FormData) {
     lastName,
     email,
     password: hashedPassword,
-    role: "admin"
+    role: "admin",
+    status: "active"
   });
 
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -117,6 +118,11 @@ export async function login(formData: FormData) {
     return { error: "Invalid credentials" };
   }
 
+  // BAN CHECK
+  if (user.status === "banned") {
+    return { error: "Your account has been suspended. Please contact support." };
+  }
+
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const session = await encrypt({
     userId: user._id.toString(),
@@ -128,7 +134,6 @@ export async function login(formData: FormData) {
 
   (await cookies()).set("session", session, { expires, httpOnly: true });
 
-  // Redirect admins directly to dashboard
   if (user.role === "admin") {
     redirect("/admin");
   }

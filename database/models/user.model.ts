@@ -7,6 +7,7 @@ export interface IUser extends Document {
   password?: string;
   avatar?: string;
   role: "user" | "admin";
+  status: "active" | "banned";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,11 +20,12 @@ const UserSchema = new Schema(
     password: { type: String, required: true },
     avatar: { type: String },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    status: { type: String, enum: ["active", "banned"], default: "active" },
   },
   { timestamps: true },
 );
 
-// Force re-load to include role field in existing environments
+// Force re-load to include new fields
 if (models.User) {
   delete (models as any).User;
 }

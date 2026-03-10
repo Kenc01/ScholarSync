@@ -1,8 +1,7 @@
 import React from "react";
-import { getAllUsersForAdmin, deleteUserByAdmin, isAdmin } from "@/lib/actions/admin.actions";
+import { getAllUsersForAdmin, deleteUserByAdmin, toggleUserBan, toggleUserRole, isAdmin } from "@/lib/actions/admin.actions";
 import { redirect } from "next/navigation";
-import { User, Shield, Book, Trash2, Mail, Calendar } from "lucide-react";
-import { toast } from "sonner";
+import { User, Shield, Book, Trash2, Mail, Calendar, Ban, UserCheck, AlertCircle, RefreshCw } from "lucide-react";
 
 export default async function AdminDashboard() {
   if (!(await isAdmin())) {
@@ -21,7 +20,7 @@ export default async function AdminDashboard() {
             Admin Control Center
           </h1>
           <p className="text-[#3d485e] mt-2">
-            Monitor system usage and manage user accounts.
+            Manage user roles, access, and monitor system usage.
           </p>
         </div>
         
@@ -45,27 +44,37 @@ export default async function AdminDashboard() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#fdfcf6] border-b border-black/5">
-                <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b]">User</th>
+                <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b]">User / Status</th>
                 <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b]">Contact</th>
                 <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b]">Usage</th>
                 <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b]">Joined</th>
-                <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b] text-right">Actions</th>
+                <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-[#212a3b] text-right">Access Controls</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {users.map((user: any) => (
-                <tr key={user._id} className="hover:bg-gray-50/50 transition-colors group">
+                <tr key={user._id} className={`transition-colors group ${user.status === 'banned' ? 'bg-red-50/30' : 'hover:bg-gray-50/50'}`}>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold ${user.role === 'admin' ? 'bg-[#212a3b] text-white' : 'bg-[#f3e4c7] text-[#663820]'}`}>
                         {user.firstName[0]}
                       </div>
                       <div>
-                        <p className="font-bold text-[#212a3b] flex items-center gap-2">
-                          {user.firstName} {user.lastName}
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-[#212a3b]">
+                            {user.firstName} {user.lastName}
+                          </p>
                           {user.role === 'admin' && <Shield size={14} className="text-indigo-500" title="Administrator" />}
-                        </p>
-                        <p className="text-xs text-gray-400 capitalize">{user.role}</p>
+                          {user.status === 'banned' && <AlertCircle size={14} className="text-red-500" title="Banned User" />}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className={`text-xs capitalize font-bold ${user.role === 'admin' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                            {user.role}
+                          </p>
+                          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${user.status === 'active' ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                            {user.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -87,17 +96,57 @@ export default async function AdminDashboard() {
                       {new Date(user.createdAt).toLocaleDateString()}
                     </div>
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    {user.role !== 'admin' && (
-                      <form action={async () => {
-                        "use server";
-                        await deleteUserByAdmin(user._id.toString());
-                      }}>
-                        <button className="p-2 text-gray-300 hover:text-red-500 transition-colors" title="Delete User">
-                          <Trash2 size={18} />
-                        </button>
-                      </form>
-                    )}
+                  <td className="px-8 py-6">
+                    <div className="flex items-center justify-end gap-2">
+                      {/* ROLE TOGGLE (Except for master admin email itself if desired, but we check ID) */}
+                      {user.email !== 'keith.admin.study@gmail.com' && (
+                        <>
+                          <form action={async () => {
+                            "use server";
+                            await toggleUserRole(user._id.toString());
+                          }}>
+                            <button 
+                              className="p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold border border-black/5 text-[#212a3b] hover:bg-white hover:shadow-sm" 
+                              title="Change Role"
+                            >
+                              <RefreshCw size={16} className="text-blue-500" />
+                              {user.role === 'admin' ? 'Demote' : 'Promote'}
+                            </button>
+                          </form>
+
+                          {/* BAN / UNBAN BUTTON */}
+                          <form action={async () => {
+                            "use server";
+                            await toggleUserBan(user._id.toString());
+                          }}>
+                            <button 
+                              className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold border ${
+                                user.status === 'active' 
+                                  ? 'text-orange-600 border-orange-100 hover:bg-orange-50' 
+                                  : 'text-green-600 border-green-100 hover:bg-green-50'
+                              }`} 
+                              title={user.status === 'active' ? 'Ban User' : 'Unban User'}
+                            >
+                              {user.status === 'active' ? <Ban size={16} /> : <UserCheck size={16} />}
+                              {user.status === 'active' ? 'Ban' : 'Restore'}
+                            </button>
+                          </form>
+
+                          {/* DELETE BUTTON */}
+                          <form action={async () => {
+                            "use server";
+                            await deleteUserByAdmin(user._id.toString());
+                          }}>
+                            <button 
+                              className="p-2 text-gray-300 hover:text-red-500 transition-colors border border-transparent hover:border-red-100 rounded-lg" 
+                              title="Permanently Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </form>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

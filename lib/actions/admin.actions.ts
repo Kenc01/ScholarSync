@@ -20,7 +20,6 @@ export async function getAllUsersForAdmin() {
 
     const users = await User.find().sort({ createdAt: -1 }).lean();
     
-    // Enrich users with book counts
     const enrichedUsers = await Promise.all(
       users.map(async (user: any) => {
         const bookCount = await Book.countDocuments({
@@ -43,21 +42,68 @@ export async function getAllUsersForAdmin() {
   }
 }
 
+export async function toggleUserRole(targetUserId: string) {
+  try {
+    if (!(await isAdmin())) throw new Error("Unauthorized");
+
+    await connectToDatabase();
+
+    const user = await User.findById(targetUserId);
+    if (!user) throw new Error("User not found");
+    
+    // Don't let admin demote themselves (safety)
+    const session = await getSession();
+    if (session?.userId === targetUserId) {
+      throw new Error("You cannot change your own role.");
+    }
+
+    const newRole = user.role === "admin" ? "user" : "admin";
+    user.role = newRole;
+    await user.save();
+
+    revalidatePath("/admin");
+    return { success: true, role: newRole };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function toggleUserBan(targetUserId: string) {
+  try {
+    if (!(await isAdmin())) throw new Error("Unauthorized");
+
+    await connectToDatabase();
+
+    const user = await User.findById(targetUserId);
+    if (!user) throw new Error("User not found");
+    if (user.role === "admin") throw new Error("Cannot ban an administrator");
+
+    const newStatus = user.status === "active" ? "banned" : "active";
+    user.status = newStatus;
+    await user.save();
+
+    revalidatePath("/admin");
+    return { success: true, status: newStatus };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
 export async function deleteUserByAdmin(targetUserId: string) {
   try {
     if (!(await isAdmin())) throw new Error("Unauthorized");
 
     await connectToDatabase();
 
-    // Don't let admin delete themselves
     const session = await getSession();
     if (session?.userId === targetUserId) {
       throw new Error("You cannot delete your own admin account.");
     }
 
+    const userToDelete = await User.findById(targetUserId);
+    if (userToDelete?.role === "admin") throw new Error("Cannot delete an administrator");
+
     await User.findByIdAndDelete(targetUserId);
-    
-    // Optionally delete their books too
     await Book.deleteMany({ userId: targetUserId });
 
     revalidatePath("/admin");
