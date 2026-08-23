@@ -1,69 +1,44 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
-
-const secretKey = process.env.JWT_SECRET || "fallback-secret-change-this-in-env";
-const key = new TextEncoder().encode(secretKey);
-
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-export async function encrypt(payload: any) {
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(key);
-}
-
-export async function decrypt(input: string): Promise<any> {
-  try {
-    const { payload } = await jwtVerify(input, key, {
-      algorithms: ["HS256"],
-    });
-    return payload;
-  } catch (error) {
-    return null;
-  }
-}
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { connectToDatabase } from "@/database/mongoose";
+import User from "@/database/models/user.model";
 
 export async function getSession() {
-  const session = (await cookies()).get("session")?.value;
-  if (!session) return null;
-  return await decrypt(session);
-}
+  const { userId } = await auth();
+  if (!userId) return null;
 
-export async function updateSession(request: NextRequest) {
-  const session = request.cookies.get("session")?.value;
-  if (!session) return null;
+  const clerkUser = await currentUser();
+  if (!clerkUser) return null;
 
-  // Refresh the session so it doesn't expire
-  const parsed = await decrypt(session);
-  if (!parsed) return null;
+  const email = clerkUser.primaryEmailAddress?.emailAddress;
+  if (!email) return null;
 
-  parsed.expires = new Date(Date.now() + SESSION_DURATION);
-  const res = NextResponse.next();
-  res.cookies.set({
-    name: "session",
-    value: await encrypt(parsed),
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: parsed.expires,
-  });
-  return res;
-}
+  await connectToDatabase();
+  const firstName = clerkUser.firstName || "Scholar";
+  const lastName = clerkUser.lastName || "User";
+  const role =
+    email.toLowerCase() === "keith.admin.study@gmail.com" ? "admin" : undefined;
 
-// Helper to set cookie during login/signup
-export async function setSessionCookie(sessionData: any) {
-  const expires = new Date(Date.now() + SESSION_DURATION);
-  const session = await encrypt({ ...sessionData, expires });
+  const user = await User.findOneAndUpdate(
+    { $or: [{ clerkId: userId }, { email }] },
+    {
+      $set: {
+        clerkId: userId,
+        firstName,
+        lastName,
+        email,
+        ...(role ? { role } : {}),
+      },
+      $setOnInsert: { status: "active" },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  ).lean();
 
-  (await cookies()).set("session", session, {
-    expires,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
+  if (user.status === "banned") return null;
+
+  return {
+    userId,
+    firstName: user.firstName,
+    email: user.email,
+    role: user.role,
+  };
 }

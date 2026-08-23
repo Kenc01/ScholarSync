@@ -2,6 +2,12 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Run the commands from the `ScholarSync` project directory, where `package.json` is located:
+
+```bash
+cd ScholarSync
+```
+
 First, run the development server:
 
 ```bash

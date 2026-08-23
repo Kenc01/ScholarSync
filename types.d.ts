@@ -12,6 +12,7 @@ import { UploadSchema } from "@/lib/zod";
 export interface IBook extends Document {
   _id: string;
   userId: string;
+  clerkId?: string;
   title: string;
   slug: string;
   author: string;
@@ -28,6 +29,7 @@ export interface IBook extends Document {
 
 export interface IBookSegment extends Document {
   userId: string;
+  clerkId?: string;
   bookId: Types.ObjectId;
   content: string;
   segmentIndex: number;

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/hooks/useSession";
-import { logout } from "@/lib/actions/auth.actions";
+import { SignOutButton } from "@clerk/nextjs";
 import { LogOut, User, ShieldAlert } from "lucide-react";
 
 const Navbar = () => {
@@ -53,7 +53,8 @@ const Navbar = () => {
                   : "text-black hover:opacity-70 font-bold",
               )}
             >
-              <ShieldAlert size={18} className="text-[#663820]" /> Control Center
+              <ShieldAlert size={18} className="text-[#663820]" /> Control
+              Center
             </Link>
           )}
 
@@ -75,35 +76,46 @@ const Navbar = () => {
           <div className="flex gap-7.5 items-center ml-4">
             {status === "unauthenticated" && (
               <>
-                <Link href="/sign-in" className="nav-link-base text-black hover:opacity-70">
+                <Link
+                  href="/sign-in"
+                  className="nav-link-base text-black hover:opacity-70"
+                >
                   Sign In
                 </Link>
-                <Link href="/sign-up" className="px-5 py-2 rounded-full bg-[#212a3b] text-white text-sm font-bold hover:bg-[#3d485e] transition-all">
+                <Link
+                  href="/sign-up"
+                  className="px-5 py-2 rounded-full bg-[#212a3b] text-white text-sm font-bold hover:bg-[#3d485e] transition-all"
+                >
                   Sign Up
                 </Link>
               </>
             )}
-            
+
             {status === "authenticated" && (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center",
-                    isAdmin ? "bg-[#212a3b] text-white" : "bg-[#f3e4c7] text-[#663820]"
-                  )}>
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center",
+                      isAdmin
+                        ? "bg-[#212a3b] text-white"
+                        : "bg-[#f3e4c7] text-[#663820]",
+                    )}
+                  >
                     <User size={18} />
                   </div>
                   <span className="nav-user-name font-medium">
                     {session?.firstName} {isAdmin && "(Admin)"}
                   </span>
                 </div>
-                <button 
-                  onClick={() => logout()}
-                  className="p-2 text-gray-500 hover:text-red-600 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
+                <SignOutButton redirectUrl="/sign-in">
+                  <button
+                    className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut size={20} />
+                  </button>
+                </SignOutButton>
               </div>
             )}
           </div>
