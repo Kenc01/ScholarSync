@@ -18,12 +18,15 @@ export const chatWithBook = async (
 ) => {
   try {
     const groq = getGroq();
-    
+
     // 1. Search context from your book segments
     const searchResults = await searchBookSegments(bookId, userMessage, 6);
-    const context = searchResults.success && searchResults.data
-      ? searchResults.data.map((s: any) => `[Page ${s.pageNumber || '?'}] ${s.content}`).join("\n\n")
-      : "";
+    const context =
+      searchResults.success && searchResults.data
+        ? searchResults.data
+            .map((s: any) => `[Page ${s.pageNumber || "?"}] ${s.content}`)
+            .join("\n\n")
+        : "";
 
     // 2. Prepare the Student Assistant instructions - Enhanced for Readability
     const systemPrompt = `You are a world-class Academic Tutor specializing in the book: "${bookTitle}".
@@ -49,21 +52,21 @@ ${context || "No specific segments found for this query."}`;
     // 3. Build the conversation history
     const chatMessages = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-6).map(msg => ({
+      ...history.slice(-6).map((msg) => ({
         role: msg.role === "user" ? "user" : "assistant",
-        content: msg.content
+        content: msg.content,
       })),
-      { role: "user", content: userMessage }
+      { role: "user", content: userMessage },
     ];
 
     // 4. Call Groq
     const completion = await groq.chat.completions.create({
       messages: chatMessages as any,
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       temperature: 0.5, // Lower temperature for more factual/structured responses
       max_tokens: 1500,
     });
-    
+
     const responseText = completion.choices[0]?.message?.content || "";
 
     return {
@@ -74,7 +77,10 @@ ${context || "No specific segments found for this query."}`;
     console.error("Groq Error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to get response from Groq",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to get response from Groq",
     };
   }
 };

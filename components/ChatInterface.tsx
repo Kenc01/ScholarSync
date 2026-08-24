@@ -2,15 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { IBook, Messages } from "@/types";
-import { 
-  Send, 
-  BookOpen, 
-  GraduationCap, 
-  Lightbulb, 
-  HelpCircle, 
-  Loader2, 
-  User, 
-  Trash2, 
+import {
+  Send,
+  BookOpen,
+  GraduationCap,
+  Lightbulb,
+  HelpCircle,
+  Loader2,
+  User,
+  Trash2,
   ChevronLeft,
   Sparkles,
   Search,
@@ -19,7 +19,7 @@ import {
   Volume2,
   VolumeX,
   MessageCircle,
-  MoreVertical
+  MoreVertical,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -46,7 +46,7 @@ const ChatInterface = ({ book }: { book: IBook }) => {
     start: startVapi,
     stop: stopVapi,
     sendMessage: sendVapiMessage,
-    limitError
+    limitError,
   } = useVapi(book);
 
   useEffect(() => {
@@ -72,15 +72,26 @@ const ChatInterface = ({ book }: { book: IBook }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, vapiMessages, isLoading, currentAssistantMessage, currentUserMessage]);
+  }, [
+    messages,
+    vapiMessages,
+    isLoading,
+    currentAssistantMessage,
+    currentUserMessage,
+  ]);
 
   const handleSendMessage = async (text?: string) => {
     const messageText = text || input;
     if (!messageText.trim() || isLoading) return;
 
     if (isVoiceMode) {
-      if (isActive) {
+      if (isActive && status !== "connecting" && status !== "starting") {
         sendVapiMessage(messageText);
+      } else if (isActive) {
+        toast.info(
+          "Voice conversation is still connecting. Please wait a moment.",
+        );
+        return;
       } else {
         // Start the voice session with this message
         try {
@@ -99,10 +110,18 @@ const ChatInterface = ({ book }: { book: IBook }) => {
     setIsLoading(true);
 
     try {
-      const result = await chatWithBook(book._id, book.title, messageText, messages);
+      const result = await chatWithBook(
+        book._id,
+        book.title,
+        messageText,
+        messages,
+      );
 
       if (result.success && result.data) {
-        setMessages((prev) => [...prev, { role: "assistant", content: result.data as string }]);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: result.data as string },
+        ]);
       } else {
         toast.error(result.error || "Failed to get a response");
       }
@@ -141,21 +160,39 @@ const ChatInterface = ({ book }: { book: IBook }) => {
   };
 
   const textPrompts = [
-    { label: "Summarize", icon: <BookOpen size={16} />, text: "Can you summarize the main points of this material?" },
-    { label: "Study Guide", icon: <GraduationCap size={16} />, text: "Create a study guide for the most important concepts in this book." },
-    { label: "Quiz Me", icon: <HelpCircle size={16} />, text: "Give me 5 practice questions to test my knowledge of this material." },
-    { label: "Explain", icon: <Lightbulb size={16} />, text: "Explain the most complex part of this book in simple terms." },
+    {
+      label: "Summarize",
+      icon: <BookOpen size={16} />,
+      text: "Can you summarize the main points of this material?",
+    },
+    {
+      label: "Study Guide",
+      icon: <GraduationCap size={16} />,
+      text: "Create a study guide for the most important concepts in this book.",
+    },
+    {
+      label: "Quiz Me",
+      icon: <HelpCircle size={16} />,
+      text: "Give me 5 practice questions to test my knowledge of this material.",
+    },
+    {
+      label: "Explain",
+      icon: <Lightbulb size={16} />,
+      text: "Explain the most complex part of this book in simple terms.",
+    },
   ];
 
   const displayMessages = isVoiceMode ? vapiMessages : messages;
 
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] w-full max-w-5xl mx-auto bg-white rounded-2xl shadow-soft-lg overflow-hidden border border-black/5">
-
       {/* Top Header / Navigation */}
       <div className="bg-[#f3e4c7] px-4 py-3 flex items-center justify-between border-b border-black/10">
         <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 hover:bg-black/5 rounded-full transition-colors">
+          <Link
+            href="/"
+            className="p-2 hover:bg-black/5 rounded-full transition-colors"
+          >
             <ChevronLeft size={20} className="text-[#212a3b]" />
           </Link>
           <div className="flex items-center gap-3">
@@ -168,14 +205,20 @@ const ChatInterface = ({ book }: { book: IBook }) => {
               />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#212a3b] line-clamp-1">{book.title}</h2>
+              <h2 className="text-sm font-bold text-[#212a3b] line-clamp-1">
+                {book.title}
+              </h2>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#663820]">
                   <Sparkles size={10} /> Student Assistant
                 </span>
                 <span className="h-1 w-1 bg-black/20 rounded-full" />
                 <span className="text-[10px] text-gray-500 font-medium">
-                  {isVoiceMode ? (isActive ? "Voice Active" : "Voice Mode") : "Text Mode"}
+                  {isVoiceMode
+                    ? isActive
+                      ? "Voice Active"
+                      : "Voice Mode"
+                    : "Text Mode"}
                 </span>
               </div>
             </div>
@@ -187,19 +230,21 @@ const ChatInterface = ({ book }: { book: IBook }) => {
           <button
             onClick={toggleVoiceMode}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-              isVoiceMode 
-                ? "bg-[#663820] text-white shadow-sm" 
+              isVoiceMode
+                ? "bg-[#663820] text-white shadow-sm"
                 : "bg-white/50 text-[#212a3b] hover:bg-white border border-black/5"
             }`}
             title={isVoiceMode ? "Disable Voice" : "Enable Voice"}
           >
             {isVoiceMode ? <Volume2 size={14} /> : <VolumeX size={14} />}
-            <span className="hidden sm:inline">{isVoiceMode ? "Voice On" : "Voice Off"}</span>
+            <span className="hidden sm:inline">
+              {isVoiceMode ? "Voice On" : "Voice Off"}
+            </span>
           </button>
 
           {/* More Options Menu (Three Dots) */}
           <div className="relative" ref={menuRef}>
-            <button 
+            <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`p-2 rounded-full transition-all ${isMenuOpen ? "bg-black/10 text-[#212a3b]" : "text-gray-500 hover:text-[#212a3b] hover:bg-black/5"}`}
               title="More options"
@@ -224,7 +269,9 @@ const ChatInterface = ({ book }: { book: IBook }) => {
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto bg-[#fafafa] p-4 sm:p-6 space-y-8 scroll-smooth">
-        {displayMessages.length === 0 && !currentAssistantMessage && !currentUserMessage ? (
+        {displayMessages.length === 0 &&
+        !currentAssistantMessage &&
+        !currentUserMessage ? (
           <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
             <div className="bg-[#663820] p-5 rounded-3xl mb-6 shadow-lg rotate-3">
               <GraduationCap size={40} className="text-white" />
@@ -233,9 +280,11 @@ const ChatInterface = ({ book }: { book: IBook }) => {
               Hello, Student! I'm your AI Learning Partner.
             </h1>
             <p className="text-[#3d485e] text-lg mb-8 leading-relaxed">
-              I've analyzed <span className="font-bold text-[#663820]">"{book.title}"</span> and I'm ready to help you study. 
+              I've analyzed{" "}
+              <span className="font-bold text-[#663820]">"{book.title}"</span>{" "}
+              and I'm ready to help you study.
             </p>
-            
+
             {isVoiceMode && !isActive ? (
               <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <button
@@ -250,17 +299,24 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                     </>
                   ) : (
                     <>
-                      <Volume2 size={24} className="group-hover:animate-pulse" />
+                      <Volume2
+                        size={24}
+                        className="group-hover:animate-pulse"
+                      />
                       <span>Start Voice Conversation</span>
                     </>
                   )}
                 </button>
-                <p className="text-xs text-gray-400 mt-4 font-medium uppercase tracking-widest">AI will start the conversation first</p>
+                <p className="text-xs text-gray-400 mt-4 font-medium uppercase tracking-widest">
+                  AI will start the conversation first
+                </p>
               </div>
             ) : (
               <>
                 <p className="text-[#3d485e] text-lg mb-10 leading-relaxed">
-                  {isVoiceMode ? "Voice mode is active. Speak or type to chat." : "Type a message below to start chatting."}
+                  {isVoiceMode
+                    ? "Voice mode is active. Speak or type to chat."
+                    : "Type a message below to start chatting."}
                 </p>
 
                 {!isVoiceMode && (
@@ -274,7 +330,9 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                         <div className="bg-[#f3e4c7] p-2.5 rounded-lg text-[#663820] group-hover:scale-110 transition-transform">
                           {prompt.icon}
                         </div>
-                        <span className="font-bold text-[#212a3b] text-sm">{prompt.label}</span>
+                        <span className="font-bold text-[#212a3b] text-sm">
+                          {prompt.label}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -285,22 +343,34 @@ const ChatInterface = ({ book }: { book: IBook }) => {
         ) : (
           <div className="space-y-8 max-w-4xl mx-auto w-full">
             {displayMessages.map((msg, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className={`flex gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
               >
-                <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-                  msg.role === "user" ? "bg-[#212a3b] text-white" : "bg-[#663820] text-white"
-                }`}>
-                  {msg.role === "user" ? <User size={20} /> : <Sparkles size={20} />}
+                <div
+                  className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                    msg.role === "user"
+                      ? "bg-[#212a3b] text-white"
+                      : "bg-[#663820] text-white"
+                  }`}
+                >
+                  {msg.role === "user" ? (
+                    <User size={20} />
+                  ) : (
+                    <Sparkles size={20} />
+                  )}
                 </div>
 
-                <div className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
-                  <div className={`px-4 py-3 sm:px-6 sm:py-4 rounded-2xl shadow-sm leading-relaxed text-sm sm:text-base ${
-                    msg.role === "user" 
-                      ? "bg-[#212a3b] text-white rounded-tr-none" 
-                      : "bg-white text-[#212a3b] border border-black/5 rounded-tl-none"
-                  }`}>
+                <div
+                  className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"}`}
+                >
+                  <div
+                    className={`px-4 py-3 sm:px-6 sm:py-4 rounded-2xl shadow-sm leading-relaxed text-sm sm:text-base ${
+                      msg.role === "user"
+                        ? "bg-[#212a3b] text-white rounded-tr-none"
+                        : "bg-white text-[#212a3b] border border-black/5 rounded-tl-none"
+                    }`}
+                  >
                     <div className="whitespace-pre-wrap prose prose-sm max-w-none prose-p:leading-relaxed prose-strong:text-[#663820]">
                       {msg.content}
                     </div>
@@ -313,7 +383,7 @@ const ChatInterface = ({ book }: { book: IBook }) => {
             ))}
 
             {currentUserMessage && (
-               <div className="flex gap-3 sm:gap-4 flex-row-reverse animate-in fade-in duration-300">
+              <div className="flex gap-3 sm:gap-4 flex-row-reverse animate-in fade-in duration-300">
                 <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-[#212a3b] text-white flex items-center justify-center shrink-0 shadow-sm">
                   <User size={20} />
                 </div>
@@ -326,7 +396,7 @@ const ChatInterface = ({ book }: { book: IBook }) => {
             )}
 
             {currentAssistantMessage && (
-               <div className="flex gap-3 sm:gap-4 flex-row animate-in fade-in duration-300">
+              <div className="flex gap-3 sm:gap-4 flex-row animate-in fade-in duration-300">
                 <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-[#663820] text-white flex items-center justify-center shrink-0 shadow-sm">
                   <Sparkles size={20} />
                 </div>
@@ -346,11 +416,22 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                 </div>
                 <div className="bg-white border border-black/5 px-6 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
                   <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-[#663820]/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-[#663820]/60 rounded-full animate-bounce" style={{ animationDelay: '200ms' }} />
-                    <span className="w-1.5 h-1.5 bg-[#663820]/80 rounded-full animate-bounce" style={{ animationDelay: '400ms' }} />
+                    <span
+                      className="w-1.5 h-1.5 bg-[#663820]/40 rounded-full animate-bounce"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-[#663820]/60 rounded-full animate-bounce"
+                      style={{ animationDelay: "200ms" }}
+                    />
+                    <span
+                      className="w-1.5 h-1.5 bg-[#663820]/80 rounded-full animate-bounce"
+                      style={{ animationDelay: "400ms" }}
+                    />
                   </div>
-                  <span className="text-xs font-bold text-[#663820] tracking-wider uppercase italic">Searching pages...</span>
+                  <span className="text-xs font-bold text-[#663820] tracking-wider uppercase italic">
+                    Searching pages...
+                  </span>
                 </div>
               </div>
             )}
@@ -372,19 +453,32 @@ const ChatInterface = ({ book }: { book: IBook }) => {
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={
-                isVoiceMode 
-                  ? "Type a message to chat..." 
+                isVoiceMode
+                  ? "Type a message to chat..."
                   : "Ask a question about this material..."
               }
               className="w-full pl-12 pr-16 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-[#212a3b] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#663820] focus:bg-white focus:border-transparent transition-all shadow-inner"
-              disabled={isLoading || (isVoiceMode && status !== "idle" && !isActive)}
+              disabled={
+                isLoading ||
+                (isVoiceMode &&
+                  (status === "connecting" || status === "starting"))
+              }
             />
             <button
               onClick={() => handleSendMessage()}
-              disabled={isLoading || !input.trim() || (isVoiceMode && status !== "idle" && !isActive)}
+              disabled={
+                isLoading ||
+                !input.trim() ||
+                (isVoiceMode &&
+                  (status === "connecting" || status === "starting"))
+              }
               className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-[#663820] text-white rounded-xl hover:bg-[#7a4528] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center shadow-md"
             >
-              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {isLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Send size={18} />
+              )}
             </button>
           </div>
 
@@ -398,8 +492,8 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                 onClick={isActive ? stopVapi : () => startVapi()}
                 disabled={status === "connecting"}
                 className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all shadow-md z-10 relative ${
-                  isActive 
-                    ? "bg-red-500 text-white" 
+                  isActive
+                    ? "bg-red-500 text-white"
                     : "bg-[#212a3b] text-white hover:bg-[#3d485e]"
                 }`}
                 title={isActive ? "Stop Voice" : "Start Voice Conversation"}
@@ -412,7 +506,7 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                   <Mic size={24} />
                 )}
               </button>
-              
+
               {/* Mini Waveform */}
               {isActive && (
                 <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-0.5 h-3 justify-center w-12">
@@ -426,7 +520,10 @@ const ChatInterface = ({ book }: { book: IBook }) => {
                       }`}
                       style={{
                         animationDelay: `${i * 0.1}s`,
-                        height: status === "speaking" || status === "listening" ? "100%" : "2px"
+                        height:
+                          status === "speaking" || status === "listening"
+                            ? "100%"
+                            : "2px",
                       }}
                     />
                   ))}
@@ -437,9 +534,14 @@ const ChatInterface = ({ book }: { book: IBook }) => {
         </div>
 
         <div className="max-w-4xl mx-auto mt-3 flex items-center justify-center gap-4 text-[10px] text-gray-400 font-medium">
-          <span className="flex items-center gap-1"><BookOpen size={10} /> Context-Aware RAG</span>
+          <span className="flex items-center gap-1">
+            <BookOpen size={10} /> Context-Aware RAG
+          </span>
           <span className="h-1 w-1 bg-gray-300 rounded-full" />
-          <span className="flex items-center gap-1"><Sparkles size={10} /> {isVoiceMode ? "Vapi AI Assistant" : "Powered by Llama 3.3"}</span>
+          <span className="flex items-center gap-1">
+            <Sparkles size={10} />{" "}
+            {isVoiceMode ? "Vapi AI Assistant" : "Powered by Llama 3.3"}
+          </span>
           <span className="h-1 w-1 bg-gray-300 rounded-full" />
           <span>Educational Assistant</span>
         </div>

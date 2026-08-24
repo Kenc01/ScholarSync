@@ -163,7 +163,7 @@ export function useVapi(book: IBook) {
         // Handle tool calls for searching status
         if (message.type === "tool-calls") {
           const isSearching = message.toolCalls?.some(
-            (tc: any) => tc.function?.name === "searchBook"
+            (tc: any) => tc.function?.name === "searchBook",
           );
           if (isSearching && !isStoppingRef.current) {
             setStatus("searching");
@@ -188,7 +188,7 @@ export function useVapi(book: IBook) {
             setCurrentAssistantMessage(message.transcript);
             // If we're starting to get an assistant transcript, we're definitely speaking/responding
             if (status !== "speaking" && !isStoppingRef.current) {
-                setStatus("speaking");
+              setStatus("speaking");
             }
           }
           return;
@@ -293,61 +293,62 @@ export function useVapi(book: IBook) {
     };
   }, []);
 
-  const start = useCallback(async (initialUserMessage?: string) => {
-    if (!userId) {
-      setLimitError("Please sign in to start a voice session.");
-      return;
-    }
-
-    // Store the user message to send it as soon as we connect
-    if (initialUserMessage) {
-      pendingInitialMessage.current = initialUserMessage;
-      
-      // Also add it to the local messages state so the user sees it immediately
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: initialUserMessage }
-      ]);
-    }
-
-    setLimitError(null);
-    setStatus("connecting");
-
-    try {
-      console.log("🎤 start function: checking session/userId", { userId });
-      // Run microphone check and session creation in parallel
-      const [stream, sessionResult] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({ audio: true }),
-        startVoiceSession(userId!, book._id),
-      ]);
-
-      console.log("🎤 start function: sessionResult", sessionResult);
-
-      // Stop microphone stream immediately after permission check
-      stream.getTracks().forEach((track) => track.stop());
-      console.log("✓ Microphone access granted");
-
-      if (!sessionResult.success) {
-        setLimitError(
-          sessionResult.error ||
-            "Session limit reached. Please upgrade your plan.",
-        );
-        setStatus("idle");
+  const start = useCallback(
+    async (initialUserMessage?: string) => {
+      if (!userId) {
+        setLimitError("Please sign in to start a voice session.");
         return;
       }
 
-      sessionIdRef.current = sessionResult.sessionId || null;
+      // Store the user message to send it as soon as we connect
+      if (initialUserMessage) {
+        pendingInitialMessage.current = initialUserMessage;
 
-      // Use the actual voice name for a more personal introduction
-      const voiceName = getVoice(voice).name;
-      
-      // If there's an initial user message, the AI should give a brief acknowledgement
-      // otherwise, use the standard greeting.
-      const firstMessage = initialUserMessage 
-        ? `Sure! Let me look into that for you.`
-        : `Hey! I'm ${voiceName}, your AI learning partner for ${book.title}. Ready to dive in?`;
+        // Also add it to the local messages state so the user sees it immediately
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", content: initialUserMessage },
+        ]);
+      }
 
-      const systemPrompt = `You are ${voiceName}, a specialized Student Learning Assistant for the book: "${book.title}" by ${book.author}.
+      setLimitError(null);
+      setStatus("connecting");
+
+      try {
+        console.log("🎤 start function: checking session/userId", { userId });
+        // Run microphone check and session creation in parallel
+        const [stream, sessionResult] = await Promise.all([
+          navigator.mediaDevices.getUserMedia({ audio: true }),
+          startVoiceSession(userId!, book._id),
+        ]);
+
+        console.log("🎤 start function: sessionResult", sessionResult);
+
+        // Stop microphone stream immediately after permission check
+        stream.getTracks().forEach((track) => track.stop());
+        console.log("✓ Microphone access granted");
+
+        if (!sessionResult.success) {
+          setLimitError(
+            sessionResult.error ||
+              "Session limit reached. Please upgrade your plan.",
+          );
+          setStatus("idle");
+          return;
+        }
+
+        sessionIdRef.current = sessionResult.sessionId || null;
+
+        // Use the actual voice name for a more personal introduction
+        const voiceName = getVoice(voice).name;
+
+        // If there's an initial user message, the AI should give a brief acknowledgement
+        // otherwise, use the standard greeting.
+        const firstMessage = initialUserMessage
+          ? `Sure! Let me look into that for you.`
+          : `Hey! I'm ${voiceName}, your AI learning partner for ${book.title}. Ready to dive in?`;
+
+        const systemPrompt = `You are ${voiceName}, a specialized Student Learning Assistant for the book: "${book.title}" by ${book.author}.
 
 PERSONALITY & VOICE:
 - Be warm, encouraging, and highly conversational.
@@ -363,82 +364,86 @@ INSTRUCTIONS:
 
 The current bookId is: ${book._id}`;
 
-      console.log("🎤 Starting VAPI call with ASSISTANT_ID:", ASSISTANT_ID);
+        console.log("🎤 Starting VAPI call with ASSISTANT_ID:", ASSISTANT_ID);
 
-      await getVapi().start(ASSISTANT_ID, {
-        firstMessage,
-        silenceTimeoutSeconds: 120, // Increased to 2 minutes
-        model: {
-          provider: "openai",
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt,
-            },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "searchBook",
-                description: "Search for specific content or information within the book to answer questions accurately.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    query: {
-                      type: "string",
-                      description: "The search query or topic to look up in the book."
-                    },
-                    bookId: {
-                      type: "string",
-                      description: "The ID of the book to search within."
-                    }
-                  },
-                  required: ["query", "bookId"]
-                }
+        await getVapi().start(ASSISTANT_ID, {
+          firstMessage,
+          silenceTimeoutSeconds: 120, // Increased to 2 minutes
+          model: {
+            provider: "openai",
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt,
               },
-              server: {
-                // Use NEXT_PUBLIC_BASE_URL if set, otherwise fallback to window.location.origin
-                // IMPORTANT: If window.location.origin is localhost, Vapi won't be able to hit this.
-                url: `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/api/vapi/search-book`
-              }
-            }
-          ]
-        },
-        variableValues: {
-          title: book.title,
-          author: book.author,
-          bookId: book._id,
-        },
-        voice: {
-          provider: "11labs" as const,
-          voiceId: getVoice(voice).id,
-          model: "eleven_turbo_v2_5" as const,
-          stability: VOICE_SETTINGS.stability,
-          similarityBoost: VOICE_SETTINGS.similarityBoost,
-          style: VOICE_SETTINGS.style,
-          useSpeakerBoost: VOICE_SETTINGS.useSpeakerBoost,
-        },
-      } as any);
-    } catch (err) {
-      console.error("Failed to start call:", err);
-      setStatus("idle");
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "searchBook",
+                  description:
+                    "Search for specific content or information within the book to answer questions accurately.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      query: {
+                        type: "string",
+                        description:
+                          "The search query or topic to look up in the book.",
+                      },
+                      bookId: {
+                        type: "string",
+                        description: "The ID of the book to search within.",
+                      },
+                    },
+                    required: ["query", "bookId"],
+                  },
+                },
+                server: {
+                  // Use NEXT_PUBLIC_BASE_URL if set, otherwise fallback to window.location.origin
+                  // IMPORTANT: If window.location.origin is localhost, Vapi won't be able to hit this.
+                  url: `${process.env.NEXT_PUBLIC_BASE_URL || window.location.origin}/api/vapi/search-book`,
+                },
+              },
+            ],
+          },
+          variableValues: {
+            title: book.title,
+            author: book.author,
+            bookId: book._id,
+          },
+          voice: {
+            provider: "11labs" as const,
+            voiceId: getVoice(voice).id,
+            model: "eleven_turbo_v2_5" as const,
+            stability: VOICE_SETTINGS.stability,
+            similarityBoost: VOICE_SETTINGS.similarityBoost,
+            style: VOICE_SETTINGS.style,
+            useSpeakerBoost: VOICE_SETTINGS.useSpeakerBoost,
+          },
+        } as any);
+      } catch (err) {
+        console.error("Failed to start call:", err);
+        setStatus("idle");
 
-      // Handle specific error types
-      const errorMessage = (err as Error).message?.toLowerCase() || "";
-      if (
-        errorMessage.includes("notallowederror") ||
-        errorMessage.includes("permission")
-      ) {
-        setLimitError(
-          "Microphone access denied. Please allow access in your browser settings.",
-        );
-      } else {
-        setLimitError("Failed to start voice session. Please try again.");
+        // Handle specific error types
+        const errorMessage = (err as Error).message?.toLowerCase() || "";
+        if (
+          errorMessage.includes("notallowederror") ||
+          errorMessage.includes("permission")
+        ) {
+          setLimitError(
+            "Microphone access denied. Please allow access in your browser settings.",
+          );
+        } else {
+          setLimitError("Failed to start voice session. Please try again.");
+        }
       }
-    }
-  }, [book._id, book.title, book.author, voice, userId]);
+    },
+    [book._id, book.title, book.author, voice, userId],
+  );
 
   const stop = useCallback(() => {
     isStoppingRef.current = true;
@@ -452,10 +457,11 @@ The current bookId is: ${book._id}`;
     status === "thinking" ||
     status === "searching" ||
     status === "speaking";
+  const isJoined = isActive && status !== "connecting" && status !== "starting";
 
   const sendMessage = useCallback(
     (text: string) => {
-      if (!text.trim() || !isActive) return;
+      if (!text.trim() || !isJoined) return;
 
       try {
         // Standard way to inject user message and trigger response
@@ -469,7 +475,9 @@ The current bookId is: ${book._id}`;
 
         // Add user message to messages array optimistically
         setMessages((prev) => {
-          const isDupe = prev.some(m => m.role === "user" && m.content === text);
+          const isDupe = prev.some(
+            (m) => m.role === "user" && m.content === text,
+          );
           if (isDupe) return prev;
           return [...prev, { role: "user", content: text }];
         });
@@ -478,7 +486,7 @@ The current bookId is: ${book._id}`;
         console.error("Failed to send message:", error);
       }
     },
-    [isActive],
+    [isJoined],
   );
 
   const clearError = useCallback(() => {

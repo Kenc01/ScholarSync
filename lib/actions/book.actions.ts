@@ -6,6 +6,7 @@ import { escapeRegex, generateSlug, serializeData } from "@/lib/utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import VoiceSession from "@/database/models/voice-session.model";
+import User from "@/database/models/user.model";
 import mongoose from "mongoose";
 import { del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
@@ -18,8 +19,16 @@ export const getAllBooks = async (search?: string, userId?: string) => {
     let query: any = {};
 
     if (userId) {
-      // Support legacy clerkId and new userId
-      query.$or = [{ userId: userId }, { clerkId: userId }];
+      // Support books saved with either the Clerk ID or the Mongo user ID.
+      const user = await User.findOne({ clerkId: userId }).select("_id").lean();
+      const ownerIds = [userId];
+
+      if (user?._id) ownerIds.push(String(user._id));
+
+      query.$or = [
+        ...ownerIds.map((ownerId) => ({ userId: ownerId })),
+        ...ownerIds.map((ownerId) => ({ clerkId: ownerId })),
+      ];
     } else {
       return { success: true, data: [] };
     }
@@ -101,7 +110,10 @@ export const createBook = async (data: CreateBook) => {
     };
   } catch (e) {
     console.error("Error creating a book", e);
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 };
 
@@ -133,7 +145,10 @@ export const deleteBook = async (bookId: string) => {
     return { success: true };
   } catch (e) {
     console.error("Error deleting book", e);
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 };
 
