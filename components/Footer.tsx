@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { Heart } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -12,9 +11,7 @@ const Footer = () => {
         </div>
         
         <div className="flex items-center gap-1.5 text-sm font-bold text-[#212a3b]">
-          <span>Developed with</span>
-          <Heart size={14} className="text-red-500 fill-red-500" />
-          <span>by</span>
+          <span>Developed by</span>
           <Link 
             href="https://keithlar.vercel.app/" 
             target="_blank" 
